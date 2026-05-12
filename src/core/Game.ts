@@ -12,7 +12,7 @@ import { Projectile } from '../entities/Projectile';
 import { DamageNumberPool } from '../systems/Pools';
 import { ParticleSystem } from '../systems/Particles';
 import { GameStatus, type TowerType } from '../types';
-import { TOWER_STATS, COLORS, MAPS, TIER_UNLOCKS } from '../constants';
+import { TOWER_STATS, MAPS, TIER_UNLOCKS } from '../constants';
 
 // UI Imports
 import { HUD } from '../ui/HUD';
@@ -20,6 +20,7 @@ import { TowerPanel } from '../ui/TowerPanel';
 import { InfoPanel } from '../ui/InfoPanel';
 import { WaveBanner } from '../ui/WaveBanner';
 import { Menu } from '../ui/Menu';
+import { DocsPanel } from '../ui/DocsPanel';
 
 export class Game {
     private renderer!: Renderer;
@@ -49,7 +50,10 @@ export class Game {
     private flashOverlay!: HTMLDivElement;
     private screenShakeContainer!: HTMLElement;
 
+    private boundLoop: (timestamp: number) => void;
+
     constructor() {
+        this.boundLoop = this.loop.bind(this);
         this.init();
     }
 
@@ -80,6 +84,7 @@ export class Game {
             );
             this.waveBanner = new WaveBanner(() => this.waveManager.startWave());
             this.menu = new Menu(() => this.startGame());
+            DocsPanel.init(this.state);
 
             this.initEffectOverlays();
             this.updateLoading(100, 'SYSTEM READY');
@@ -90,7 +95,7 @@ export class Game {
             this.menu.setEnabled(true);
             
             setTimeout(() => this.finishLoading(), 800);
-            requestAnimationFrame(this.loop.bind(this));
+            requestAnimationFrame(this.boundLoop);
 
         } catch (error) {
             console.error('Initialization failed:', error);
@@ -115,15 +120,16 @@ export class Game {
     }
 
     private handleWormSplit(enemy: WormProcess): void {
-        const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
-        const p1 = new DataPacket(this.renderer.scene, latestPath);
+        const splitPath = enemy.path.slice();
+        const splitIndex = enemy.pathIndex;
+        const p1 = new DataPacket(this.renderer.scene, splitPath);
         p1.mesh.position.copy(enemy.mesh.position).add(new THREE.Vector3(0.2, 0, 0));
-        p1.pathIndex = enemy.pathIndex;
+        p1.pathIndex = splitIndex;
         this.enemies.push(p1);
         
-        const p2 = new DataPacket(this.renderer.scene, latestPath);
+        const p2 = new DataPacket(this.renderer.scene, splitPath);
         p2.mesh.position.copy(enemy.mesh.position).add(new THREE.Vector3(-0.2, 0, 0));
-        p2.pathIndex = enemy.pathIndex;
+        p2.pathIndex = splitIndex;
         this.enemies.push(p2);
     }
 
@@ -160,12 +166,12 @@ export class Game {
         this.selectedTowerType = null;
         this.towerPanel.highlightCard(null);
         this.grid.hidePlacementRange();
-        
+        this.grid.highlightCell(-1, -1, null);
         if (this.selectedTower) {
             this.selectedTower.setSelection(false);
             this.selectedTower = null;
-            this.infoPanel.update(null);
         }
+        this.infoPanel.update(null);
     }
 
     private updateLoading(percent: number, status: string): void {
@@ -203,7 +209,7 @@ export class Game {
         overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,5,20,0.92);border:2px solid #00f5ff;border-radius:12px;padding:24px 40px;text-align:center;z-index:1500;color:#fff;font-family:monospace;';
         overlay.innerHTML = `
             <div style="font-size:0.7rem;color:#00f5ff;letter-spacing:3px;margin-bottom:6px;">NETWORK RECONFIGURING</div>
-            <div style="font-size:1.5rem;margin-bottom:10px;">WAVE ${this.waveManager.currentWaveIndex}</div>
+            <div style="font-size:1.5rem;margin-bottom:10px;">WAVE ${this.waveManager.waveIndex}</div>
             <div style="font-size:0.85rem;color:var(--text-secondary);">Map ${mapIndex + 1} of ${MAPS.length}</div>
             <div style="font-size:0.8rem;margin-top:8px;color:var(--color-gold);">
                 +${refund}g refund · +${bonus}g bonus
@@ -305,7 +311,12 @@ export class Game {
         // Reset status to MENU (not PLAYING)
         this.state.status = GameStatus.MENU;
         this.grid.loadMap(0);
-        
+        this.selectedTowerType = null;
+        this.selectedTower = null;
+        this.towerPanel.highlightCard(null);
+        this.grid.hidePlacementRange();
+        this.infoPanel.update(null);
+
         this.menu.setEnabled(true);
         this.menu.showMenu();
         document.getElementById('game-over-overlay')!.style.display = 'none';
@@ -398,7 +409,9 @@ export class Game {
     }
 
     private handleSell(tower: Tower): void {
-        this.state.addGold(Math.floor(tower.cost * 0.5));
+        // Refund base + upgrade investment = original base cost scaled by sell ratio
+        const sellValue = Math.floor(tower.cost * 0.5 * Math.pow(1.5, tower.level - 1));
+        this.state.addGold(Math.max(sellValue, Math.floor(tower.cost * 0.5)));
         this.grid.removeTower(tower.gridX, tower.gridY);
         tower.dispose();
         this.towers = this.towers.filter(t => t !== tower);
@@ -421,7 +434,7 @@ export class Game {
     }
 
     private loop(timestamp: number): void {
-        requestAnimationFrame(this.loop.bind(this));
+        requestAnimationFrame(this.boundLoop);
 
         const rawDelta = (timestamp - this.lastTime) / 1000;
         this.lastTime = timestamp;
@@ -443,20 +456,7 @@ export class Game {
         this.waveManager.update(delta, this.enemies.length);
         this.particles.update(delta);
 
-        // Update Entities
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-            const enemy = this.enemies[i];
-            if (enemy.move(delta)) {
-                this.state.removeLife(1);
-                this.hud.update();
-                enemy.dispose();
-                this.enemies.splice(i, 1);
-                this.triggerFlashEffect();
-            } else {
-                enemy.updateHPBar(this.renderer.camera);
-            }
-        }
-
+        // Tower fire: creates projectiles (enemies may be updated mid-frame)
         this.towers.forEach(tower => {
             const result = tower.update(delta, this.enemies);
             if (result) {
@@ -465,33 +465,45 @@ export class Game {
             }
         });
 
+        // Projectile loop: ONLY move and deal damage, NEVER process death
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const p = this.projectiles[i];
             p.update(delta);
             if (!p.active) {
-                if (p.target.hp <= 0) {
-                    const enemyIdx = this.enemies.indexOf(p.target);
-                    if (enemyIdx > -1) {
-                        const enemy = this.enemies[enemyIdx];
-                        const vector = enemy.mesh.position.clone().project(this.renderer.camera);
-                        const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
-                        const y = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
-                        this.damagePool.spawn(x, y, `+${enemy.reward}g`, false);
-                        this.particles.spawnExplosion(enemy.mesh.position, enemy.color);
-
-                        enemy.onDeath(this.state);
-                        this.hud.update();
-                        this.towerPanel.updateAffordability(this.state.gold);
-                        
-                        if (enemy instanceof WormProcess) {
-                            this.handleWormSplit(enemy);
-                        }
-
-                        enemy.dispose();
-                        this.enemies.splice(enemyIdx, 1);
-                    }
-                }
                 this.projectiles.splice(i, 1);
+            }
+        }
+
+        // Enemy loop: CENTRALIZED death processing
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            if (enemy.move(delta)) {
+                // Reached end — lose life, enemy escapes
+                this.state.removeLife(1);
+                this.hud.update();
+                enemy.dispose();
+                this.enemies.splice(i, 1);
+                this.triggerFlashEffect();
+            } else if (enemy.hp <= 0) {
+                // Death processing (one place, one time)
+                const vector = enemy.mesh.position.clone().project(this.renderer.camera);
+                const x = (vector.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
+                this.damagePool.spawn(x, y, `+${enemy.reward}g`, false);
+                this.particles.spawnExplosion(enemy.mesh.position, enemy.color);
+
+                if (enemy instanceof WormProcess) {
+                    this.handleWormSplit(enemy);
+                }
+
+                enemy.onDeath(this.state);
+                this.hud.update();
+                this.towerPanel.updateAffordability(this.state.gold);
+
+                enemy.dispose();
+                this.enemies.splice(i, 1);
+            } else {
+                enemy.updateHPBar(this.renderer.camera);
             }
         }
 
