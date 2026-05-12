@@ -1,3 +1,5 @@
+import { DocsPanel } from './DocsPanel';
+
 export class Menu {
     constructor(onStart: () => void) {
         const startBtn = document.getElementById('start-game-btn');
@@ -13,6 +15,9 @@ export class Menu {
         if (closeManualBtn && manualModal) {
             closeManualBtn.onclick = () => manualModal.style.display = 'none';
         }
+
+        const docsBtn = document.getElementById('docs-btn');
+        if (docsBtn) docsBtn.onclick = () => DocsPanel.open();
     }
 
     public showGameOver(wave: number, score: number, victory: boolean = false): void {
