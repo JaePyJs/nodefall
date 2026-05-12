@@ -30,7 +30,6 @@ export const DocsPanel = (() => {
 
     function open(): void {
         if (!gameState) {
-            console.warn('[DocsPanel] Call DocsPanel.init(gameState) before open()');
             return;
         }
 
