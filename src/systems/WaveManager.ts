@@ -44,13 +44,15 @@ export class WaveManager {
         }
 
         // Hide banner
-        document.getElementById('wave-banner')!.style.display = 'none';
+        const banner = document.getElementById('wave-banner');
+        if (banner) banner.style.display = 'none';
 
         // Generate wave composition
         this.generateWave(this.currentWaveIndex);
         
         if (this.currentWaveIndex % 5 === 0) {
-            document.getElementById('boss-hp-container')!.style.display = 'block';
+            const bossContainer = document.getElementById('boss-hp-container');
+            if (bossContainer) bossContainer.style.display = 'block';
         }
     }
 
@@ -83,8 +85,8 @@ export class WaveManager {
             }
         }
     }
-
     public update(delta: number, enemyCount: number): void {
+        if (this.gameState.status === GameStatus.MENU) return;
         if (this.gameState.status === GameStatus.GAME_OVER || this.gameState.status === GameStatus.VICTORY) {
             this.spawnQueue = [];
             this.isWaveActive = false;
@@ -138,10 +140,14 @@ export class WaveManager {
         }
 
         // Show banner for next wave
-        const banner = document.getElementById('wave-banner')!;
-        banner.style.display = 'block';
-        document.querySelector('.banner-title')!.innerHTML = `WAVE ${this.currentWaveIndex + 1} READY`;
-        document.getElementById('wave-details')!.innerHTML = `Prepare your defenses.`;
+        const banner = document.getElementById('wave-banner');
+        if (banner) {
+            banner.style.display = 'block';
+            const title = banner.querySelector('.banner-title') as HTMLElement;
+            if (title) title.innerHTML = `WAVE ${this.currentWaveIndex + 1} READY`;
+            const details = document.getElementById('wave-details');
+            if (details) details.innerHTML = `Prepare your defenses.`;
+        }
         
         if (this.onWaveComplete) this.onWaveComplete();
     }

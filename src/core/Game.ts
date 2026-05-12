@@ -12,7 +12,7 @@ import { Projectile } from '../entities/Projectile';
 import { DamageNumberPool } from '../systems/Pools';
 import { ParticleSystem } from '../systems/Particles';
 import { GameStatus, type TowerType } from '../types';
-import { TOWER_STATS, COLORS } from '../constants';
+import { TOWER_STATS, COLORS, MAPS, TIER_UNLOCKS } from '../constants';
 
 // UI Imports
 import { HUD } from '../ui/HUD';
@@ -140,8 +140,18 @@ export class Game {
 
     private initKeyboard(): void {
         window.addEventListener('keydown', (e) => {
-            if (e.key.toLowerCase() === 'e') {
+            if (e.key === 'Escape' || e.key.toLowerCase() === 'e') {
                 this.cancelPlacement();
+            } else if (e.key === '1') {
+                this.selectTowerType('FIREWALL');
+            } else if (e.key === '2') {
+                this.selectTowerType('ENCRYPTION');
+            } else if (e.key === '3') {
+                this.selectTowerType('OVERLOAD');
+            } else if (e.key === '4') {
+                this.selectTowerType('EMP');
+            } else if (e.key === '5') {
+                this.selectTowerType('ICE');
             }
         });
     }
@@ -187,6 +197,27 @@ export class Game {
         }, 1000);
     }
 
+    /** Map transition notification overlay */
+    private showMapChangeNotification(mapIndex: number, refund: number, bonus: number): void {
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,5,20,0.92);border:2px solid #00f5ff;border-radius:12px;padding:24px 40px;text-align:center;z-index:1500;color:#fff;font-family:monospace;';
+        overlay.innerHTML = `
+            <div style="font-size:0.7rem;color:#00f5ff;letter-spacing:3px;margin-bottom:6px;">NETWORK RECONFIGURING</div>
+            <div style="font-size:1.5rem;margin-bottom:10px;">WAVE ${this.waveManager.currentWaveIndex}</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary);">Map ${mapIndex + 1} of ${MAPS.length}</div>
+            <div style="font-size:0.8rem;margin-top:8px;color:var(--color-gold);">
+                +${refund}g refund · +${bonus}g bonus
+            </div>
+            <div style="font-size:0.7rem;margin-top:12px;color:var(--text-secondary);">Resuming in 3s...</div>
+        `;
+        document.body.appendChild(overlay);
+        setTimeout(() => {
+            overlay.style.transition = 'opacity 0.4s';
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.remove(), 400);
+        }, 2500);
+    }
+
     private initEvents(): void {
         this.input.onGridHover = (x, y) => {
             if (this.state.status !== GameStatus.PLAYING) return;
@@ -223,16 +254,40 @@ export class Game {
             this.state.addGold(50 + (this.state.wave * 10));
             this.hud.update();
             this.towerPanel.updateAffordability(this.state.gold);
+            this.towerPanel.updateUnlock(this.state.wave + 1);
         };
 
         this.waveManager.onMapChange = (index) => {
+            // Pause gameplay so players have time to understand the new map
+            this.state.isPaused = true;
+            
+            // Refund all towers before map swap so player can rebuild on new path
+            let totalRefund = 0;
+            for (let i = this.towers.length - 1; i >= 0; i--) {
+                totalRefund += Math.floor(this.towers[i].cost * 0.8);
+                this.towers[i].dispose();
+                this.grid.removeTower(this.towers[i].gridX, this.towers[i].gridY);
+            }
+            this.towers = [];
+            this.selectedTower = null;
+            this.infoPanel.update(null);
+            
+            // Give refund + bonus map change gold
+            const bonus = 50;
+            this.state.addGold(totalRefund + bonus);
+            
+            // Load new map path
             this.grid.loadMap(index);
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,245,255,0.2);pointer-events:none;z-index:1000;';
-            document.body.appendChild(overlay);
+            const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
+            this.enemies.forEach(e => e.updatePath(latestPath));
+            
+            // Show map change notification
+            this.showMapChangeNotification(index, totalRefund, bonus);
+
+            // Unpause after 3 seconds so player has time to build
             setTimeout(() => {
-                if (overlay.parentNode) document.body.removeChild(overlay);
-            }, 500);
+                this.state.isPaused = false;
+            }, 3000);
         };
 
         document.getElementById('restart-btn')!.onclick = () => this.resetGame();
@@ -247,16 +302,24 @@ export class Game {
         this.towers = [];
 
         this.state.reset();
+        // Reset status to MENU (not PLAYING)
+        this.state.status = GameStatus.MENU;
         this.grid.loadMap(0);
         
         this.menu.setEnabled(true);
         this.menu.showMenu();
         document.getElementById('game-over-overlay')!.style.display = 'none';
+        document.getElementById('boss-hp-container')!.style.display = 'none';
         this.hud.update();
         this.towerPanel.updateAffordability(this.state.gold);
+        this.towerPanel.updateUnlock(1);
+        this.waveManager.isWaveActive = false;
     }
 
     private selectTowerType(type: TowerType): void {
+        // Check if tower is unlocked
+        if (this.state.wave < TIER_UNLOCKS[type]) return;
+        
         if (this.selectedTowerType === type) {
             this.selectedTowerType = null;
             this.towerPanel.highlightCard(null);
@@ -354,6 +417,7 @@ export class Game {
         this.waveBanner.show(1);
         this.hud.update();
         this.towerPanel.updateAffordability(this.state.gold);
+        this.towerPanel.updateUnlock(1);
     }
 
     private loop(timestamp: number): void {

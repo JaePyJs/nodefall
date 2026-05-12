@@ -18,7 +18,7 @@ export abstract class Enemy {
     public hpBarElement: HTMLElement;
     protected hpFill: HTMLElement;
     protected scene: THREE.Scene;
-    protected path: THREE.Vector3[];
+    public path: THREE.Vector3[];
     protected effects: StatusEffect[] = [];
 
     constructor(scene: THREE.Scene, hp: number, speed: number, reward: number, path: THREE.Vector3[]) {
@@ -55,13 +55,13 @@ export abstract class Enemy {
         this.hp -= amount;
         this.updateHPBarVisual();
         
-        // Flash white effect
+        // Flash white effect - handle both MeshStandardMaterial and MeshLambertMaterial
         const mesh = this.mesh.children[0] as THREE.Mesh;
-        if (mesh && mesh.material instanceof THREE.MeshLambertMaterial) {
-            const mat = mesh.material;
+        if (mesh && (mesh.material instanceof THREE.MeshStandardMaterial || mesh.material instanceof THREE.MeshLambertMaterial)) {
+            const mat = mesh.material as THREE.MeshStandardMaterial | THREE.MeshLambertMaterial;
             const oldColor = mat.color.getHex();
             mat.color.set(0xffffff);
-            setTimeout(() => mat.color.set(oldColor), 50);
+            setTimeout(() => mat.color.set(oldColor), 80);
         }
 
         return this.hp <= 0;

@@ -13,6 +13,7 @@ export class Grid {
     private currentMapIndex: number = 0;
     private mapStart: Position = { x: 0, y: 0 };
     private mapEnd: Position = { x: 0, y: 0 };
+    private hoveredCell: Position | null = null;
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
@@ -36,10 +37,24 @@ export class Grid {
             }
         }
 
-        // Set path cells from MAPS data
+        // Set path cells from MAPS data (interpolate between waypoints)
         map.path.forEach(pos => {
             this.cells[pos.y][pos.x] = TileType.PATH;
         });
+        // Interpolate between consecutive waypoints to fill gaps
+        for (let i = 0; i < map.path.length - 1; i++) {
+            const a = map.path[i];
+            const b = map.path[i + 1];
+            const dx = Math.sign(b.x - a.x);
+            const dy = Math.sign(b.y - a.y);
+            let cx = a.x;
+            let cy = a.y;
+            while (cx !== b.x || cy !== b.y) {
+                this.cells[cy][cx] = TileType.PATH;
+                cx += dx;
+                cy += dy;
+            }
+        }
         this.cells[this.mapStart.y][this.mapStart.x] = TileType.START;
         this.cells[this.mapEnd.y][this.mapEnd.x] = TileType.END;
 
@@ -62,15 +77,18 @@ export class Grid {
                 mat.color.set(color);
                 mat.emissive.set(color);
                 
-                if (type === TileType.PATH || type === TileType.START || type === TileType.END) {
+                if (type === TileType.PATH) {
                     mat.opacity = 0.9;
                     mat.emissiveIntensity = 0.5;
+                } else if (type === TileType.START || type === TileType.END) {
+                    mat.opacity = 1.0;
+                    mat.emissiveIntensity = 0.8;
                 } else if (type === TileType.TOWER) {
-                    mat.opacity = 0.8;
+                    mat.opacity = 0.6;
                     mat.emissiveIntensity = 0.3;
                 } else {
-                    mat.opacity = 0.2;
-                    mat.emissiveIntensity = 0;
+                    mat.opacity = 0.4;
+                    mat.emissiveIntensity = 0.05;
                 }
             }
         }
@@ -88,9 +106,9 @@ export class Grid {
                 const material = new THREE.MeshStandardMaterial({
                     color: color,
                     transparent: true,
-                    opacity: type === TileType.BUILDABLE ? 0.2 : 0.9,
+                    opacity: 0.4,
                     emissive: color,
-                    emissiveIntensity: (type === TileType.PATH || type === TileType.START || type === TileType.END) ? 0.5 : 0,
+                    emissiveIntensity: (type === TileType.PATH || type === TileType.START || type === TileType.END) ? 0.5 : 0.05,
                     metalness: 0.5,
                     roughness: 0.2
                 });
@@ -161,12 +179,13 @@ export class Grid {
         if (this.calculatePath()) {
             const mesh = this.cellMeshes[y][x];
             const mat = mesh.material as THREE.MeshStandardMaterial;
-            mat.opacity = 0.8;
-            mat.color.set(COLORS.BLUE);
-            mat.emissive.set(COLORS.BLUE);
+            mat.opacity = 0.6;
+            mat.color.set(COLORS.GRID);
+            mat.emissive.set(COLORS.GRID);
             mat.emissiveIntensity = 0.3;
             return true;
         } else {
+            // Tower blocks the path — revert
             this.cells[y][x] = oldType;
             this.calculatePath();
             return false;
@@ -192,22 +211,42 @@ export class Grid {
         );
     }
 
-    public highlightCell(x: number, y: number, color: number | null): void {
-        for (let j = 0; j < GRID_ROWS; j++) {
-            for (let i = 0; i < GRID_COLS; i++) {
-                if (this.cells[j][i] === TileType.BUILDABLE) {
-                    const mat = this.cellMeshes[j][i].material as THREE.MeshStandardMaterial;
-                    mat.emissive.set(0x000000);
-                    mat.emissiveIntensity = 0;
-                }
-            }
+    /* Reset hover highlight */
+    public clearHover(): void {
+        if (this.hoveredCell) {
+            const { x, y } = this.hoveredCell;
+            const type = this.cells[y][x];
+            const mesh = this.cellMeshes[y][x];
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            mat.emissive.set(this.getColorForType(type));
+            mat.emissiveIntensity = this.getBaseEmissive(type);
+            this.hoveredCell = null;
         }
+    }
 
-        if (color !== null && x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS) {
-            const mat = this.cellMeshes[y][x].material as THREE.MeshStandardMaterial;
-            mat.emissive.set(color);
-            mat.emissiveIntensity = 0.6;
+    private getBaseEmissive(type: number): number {
+        switch (type) {
+            case TileType.PATH: return 0.5;
+            case TileType.START:
+            case TileType.END: return 0.8;
+            case TileType.TOWER: return 0.3;
+            default: return 0.05;
         }
+    }
+
+    public highlightCell(x: number, y: number, color: number | null): void {
+        this.clearHover();
+        if (color !== null && this.isInBounds(x, y)) {
+            const mesh = this.cellMeshes[y][x];
+            const mat = mesh.material as THREE.MeshStandardMaterial;
+            mat.emissive.set(color);
+            mat.emissiveIntensity = 0.8;
+            this.hoveredCell = { x, y };
+        }
+    }
+
+    private isInBounds(x: number, y: number): boolean {
+        return x >= 0 && x < GRID_COLS && y >= 0 && y < GRID_ROWS;
     }
 
     public showPlacementRange(x: number, y: number, range: number, color: number): void {
@@ -230,6 +269,7 @@ export class Grid {
     }
 
     public hidePlacementRange(): void {
+        this.clearHover();
         if (this.placementRangeCircle) {
             this.scene.remove(this.placementRangeCircle);
             this.placementRangeCircle.geometry.dispose();

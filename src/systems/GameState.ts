@@ -60,6 +60,7 @@ export class GameState {
         if (livesEl) {
             livesEl.innerText = this.lives.toString();
             if (this.lives < 5) livesEl.style.color = 'var(--color-red)';
+            else livesEl.style.color = '';
         }
         if (waveEl) waveEl.innerText = `${this.wave}/${this.maxWaves}`;
     }
@@ -71,7 +72,7 @@ export class GameState {
         this.wave = 0;
         this.gameSpeed = 1;
         this.isPaused = false;
-        this.status = GameStatus.PLAYING;
+        this.status = GameStatus.MENU;
         this.updateUI();
     }
 }

@@ -29,8 +29,6 @@ export abstract class Tower {
         this.mesh = new THREE.Group();
         this.mesh.position.copy(this.position);
         this.scene.add(this.mesh);
-
-        this.createRangeCircle();
     }
 
     private createRangeCircle(): void {
@@ -49,6 +47,9 @@ export abstract class Tower {
     }
 
     public setSelection(selected: boolean): void {
+        if (!this.rangeCircle && selected) {
+            this.createRangeCircle();
+        }
         if (this.rangeCircle) {
             this.rangeCircle.visible = selected;
         }

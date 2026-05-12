@@ -9,7 +9,7 @@ export class WaveBanner {
         if (!banner) return;
 
         const title = banner.querySelector('.banner-title') as HTMLElement;
-        const details = document.getElementById('wave-details') as HTMLElement;
+        const details = document.getElementById('wave-details');
         
         banner.style.display = 'block';
         if (title) title.innerText = `WAVE ${wave} INCOMING`;

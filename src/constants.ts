@@ -69,6 +69,15 @@ export const TOWER_STATS = {
     }
 };
 
+// Tower tier unlocks — wave-gated availability
+export const TIER_UNLOCKS: Record<TowerType, number> = {
+    FIREWALL: 1,     // Available from wave 1
+    ENCRYPTION: 4,   // Unlocks at wave 4
+    OVERLOAD: 8,     // Unlocks at wave 8
+    EMP: 12,         // Unlocks at wave 12
+    ICE: 16,         // Unlocks at wave 16
+};
+
 export const ENEMY_STATS = {
     DATA_PACKET: { hp: 60, speed: 2.0, reward: 10, color: COLORS.GREEN },
     WORM_PROCESS: { hp: 120, speed: 1.5, reward: 20, color: 0x33ff00 },

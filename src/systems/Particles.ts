@@ -9,11 +9,14 @@ export class ParticleSystem {
     }
 
     public spawnExplosion(position: THREE.Vector3, color: number, count: number = 10): void {
-        const geometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
-        const material = new THREE.MeshLambertMaterial({ 
+        // Create particles with varied shapes for visual interest
+        const geometry = new THREE.SphereGeometry(0.08, 4, 4);
+        const material = new THREE.MeshStandardMaterial({
             color: color,
             emissive: color,
-            emissiveIntensity: 0.5
+            emissiveIntensity: 0.8,
+            transparent: true,
+            opacity: 0.9
         });
 
         for (let i = 0; i < count; i++) {
@@ -21,20 +24,19 @@ export class ParticleSystem {
             mesh.position.copy(position);
             
             const velocity = new THREE.Vector3(
-                (Math.random() - 0.5) * 4,
-                Math.random() * 4,
-                (Math.random() - 0.5) * 4
+                (Math.random() - 0.5) * 5,
+                Math.random() * 5 + 1,
+                (Math.random() - 0.5) * 5
             );
 
             this.scene.add(mesh);
             this.particles.push({
                 mesh,
                 velocity,
-                life: 1.0
+                life: 1.0,
             });
         }
     }
-
     public update(delta: number): void {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];

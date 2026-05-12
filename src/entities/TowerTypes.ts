@@ -56,6 +56,7 @@ export class FirewallTower extends Tower {
             const target = this.findTarget(enemies);
             if (target) {
                 this.cooldown = 1 / this.fireRate;
+                this.mesh.lookAt(target.mesh.position);
                 return new Projectile(this.scene, this.position, target, this.damage, this.color);
             }
         }
@@ -114,6 +115,7 @@ export class EncryptionNode extends Tower {
             const target = this.findTarget(enemies);
             if (target) {
                 this.cooldown = 1 / this.fireRate;
+                this.mesh.lookAt(target.mesh.position);
                 const p = new Projectile(this.scene, this.position, target, this.damage, this.color);
                 p.effect = { type: 'slow', duration: 2, value: 0.5 };
                 return p;
@@ -175,6 +177,7 @@ export class OverloadCannon extends Tower {
             const target = this.findTarget(enemies);
             if (target) {
                 this.cooldown = 1 / this.fireRate;
+                this.mesh.lookAt(target.mesh.position);
                 return new Projectile(this.scene, this.position, target, this.damage, this.color);
             }
         }
@@ -234,6 +237,7 @@ export class EMPTower extends Tower {
             const targets = enemies.filter(e => this.position.distanceTo(e.mesh.position) < this.range);
             if (targets.length > 0) {
                 this.cooldown = 1 / this.fireRate;
+                this.mesh.rotation.y += Math.PI / 4; // Spin animation per burst
                 return targets.map(t => new Projectile(this.scene, this.position, t, this.damage, this.color));
             }
         }
@@ -292,6 +296,7 @@ export class IceNode extends Tower {
             const target = this.findTarget(enemies);
             if (target) {
                 this.cooldown = 1 / this.fireRate;
+                this.mesh.lookAt(target.mesh.position);
                 const p = new Projectile(this.scene, this.position, target, this.damage, this.color);
                 p.effect = { type: 'freeze', duration: 0.5, value: 0 };
                 return p;
