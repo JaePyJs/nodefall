@@ -1,13 +1,123 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>nodefall</title>
+    <title>NODEFALL | Network Defense Simulator</title>
   </head>
-  <body>
-    <div id="app"></div>
+  <body style="background-color: var(--bg-primary);">
+    <div id="loading-screen" class="overlay">
+      <div class="menu-content">
+        <h1 class="title glitch">INITIALIZING...</h1>
+        <div id="loading-bar-container" style="width: 200px; height: 4px; background: rgba(0, 245, 255, 0.1); margin: 20px auto; border-radius: 2px; overflow: hidden;">
+          <div id="loading-bar-fill" style="width: 0%; height: 100%; background: var(--color-cyan); transition: width 0.3s ease;"></div>
+        </div>
+        <p id="loading-status" style="font-size: 0.8rem; color: var(--text-secondary);">DECRYPTING DEFENSE PROTOCOLS</p>
+        <div id="error-display" style="display: none; color: var(--color-red); margin-top: 20px; font-size: 0.8rem; border: 1px solid var(--color-red); padding: 10px; background: rgba(255, 0, 0, 0.1);">
+          SYSTEM FAILURE: <span id="error-text"></span>
+        </div>
+      </div>
+    </div>
+
+    <div id="app" style="opacity: 0; transition: opacity 1s ease;">
+      <div id="game-container"></div>
+      
+      <!-- HUD -->
+      <div id="hud" class="panel">
+        <div class="hud-item">
+          🛡 <span style="color: var(--color-cyan)">NODEFALL</span>
+        </div>
+        <div class="hud-item">
+          ⚡ WAVE: <span id="wave-counter" class="hud-value">1/20</span>
+        </div>
+        <div class="hud-item">
+          ❤️ LIVES: <span id="lives-counter" class="hud-value">20</span>
+        </div>
+        <div class="hud-item">
+          💰 GOLD: <span id="gold-counter" class="hud-value">200</span>
+        </div>
+        <div class="hud-item" style="gap: 5px;">
+          <button id="speed-btn" class="btn" style="padding: 4px 8px; width: auto;">1x</button>
+          <button id="pause-btn" class="btn" style="padding: 4px 8px; width: auto;">⏸</button>
+        </div>
+      </div>
+
+      <!-- Tower Selection Panel -->
+      <div id="tower-panel" class="panel">
+        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 5px; border-bottom: 1px solid var(--border-cyan); padding-bottom: 5px;">
+          BUILD SYSTEMS
+        </div>
+        <!-- Tower cards will be injected here -->
+      </div>
+
+      <!-- Info Panel (Selected Tower) -->
+      <div id="info-panel" class="panel">
+        <div id="info-content">
+          <!-- Selection info will be injected here -->
+        </div>
+      </div>
+
+      <div id="wave-banner" class="panel" style="top: auto; bottom: 80px; left: 20px; transform: none; width: 280px; text-align: left;">
+        <div class="banner-title" style="font-size: 1.1rem; color: var(--color-gold);">WAVE 1 READY</div>
+        <div id="wave-details" style="margin-bottom: 12px; font-size: 0.8rem; color: var(--text-secondary);">
+          8x Data Packets detected
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button id="start-wave-btn" class="btn" style="padding: 6px 12px; font-size: 0.8rem;">INITIATE</button>
+          <div id="auto-start-timer" style="font-size: 0.7rem; color: var(--text-secondary);">
+            Auto: 15s
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Menu Overlay -->
+      <div id="menu-overlay" class="overlay">
+        <div class="menu-content">
+          <h1 class="title glitch">NODEFALL</h1>
+          <div class="menu-buttons">
+            <button id="start-game-btn" class="btn" disabled style="padding: 15px 40px; font-size: 1.2rem;">INITIALIZE DEFENSE</button>
+            <p id="menu-status" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 10px;">Waiting for system ready...</p>
+          </div>
+          <button id="how-to-play-btn" class="btn">SYSTEM MANUAL</button>
+        </div>
+      </div>
+
+      <!-- System Manual Modal -->
+      <div id="manual-modal" class="overlay" style="display: none; background: rgba(5, 5, 20, 0.95);">
+        <div class="panel" style="max-width: 600px; padding: 30px; position: relative;">
+          <h2 class="info-header">SYSTEM MANUAL</h2>
+          <div style="font-size: 0.9rem; line-height: 1.6; color: var(--text-primary); margin-bottom: 20px;">
+            <p><strong style="color: var(--color-gold);">OBJECTIVE:</strong> Defend the Core Server from corrupted data packets for 20 waves.</p>
+            <p><strong style="color: var(--color-cyan);">BUILDING:</strong> Select a tower from the right panel and click on a buildable grid cell. Towers cost <span style="color: var(--color-gold);">Credits</span>.</p>
+            <p><strong style="color: var(--color-purple);">ENEMIES:</strong> Corrupted packets follow the blue data paths. Each breach costs <span style="color: var(--color-red);">1 Life</span>. You only have <span style="color: var(--color-red);">3 Lives</span>.</p>
+            <p><strong style="color: var(--color-green);">UPGRADING:</strong> Click a placed tower to upgrade its Damage, Range, and Fire Rate (Max Lv. 3).</p>
+            <p><strong style="color: var(--color-yellow);">WAVES:</strong> Survive every 5 waves to proceed to a new network map and face a Kernel Boss.</p>
+          </div>
+          <button id="close-manual-btn" class="btn">CLOSE MANUAL</button>
+        </div>
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div id="game-over-overlay" class="overlay" style="display: none;">
+        <div class="menu-content">
+          <h1 id="game-over-title" class="title" style="font-size: 3rem; color: var(--color-red);">GRID BREACHED</h1>
+          <p id="game-over-stats" style="margin-bottom: 30px; line-height: 1.6;">
+            Waves survived: <span id="final-wave" class="hud-value">0</span><br>
+            Threats neutralized: <span id="final-score" class="hud-value">0</span>
+          </p>
+          <button id="restart-btn" class="btn" style="font-size: 1.2rem; padding: 15px;">REBOOT SYSTEM</button>
+        </div>
+      </div>
+
+      <!-- Boss HP Bar -->
+      <div id="boss-hp-container" style="position: fixed; top: 60px; left: 50%; transform: translateX(-50%); width: 60%; display: none; z-index: 95;">
+        <div style="text-align: center; font-size: 0.8rem; color: var(--color-red); margin-bottom: 4px; letter-spacing: 2px;">KERNEL BOSS DETECTED</div>
+        <div class="hp-bar" style="position: relative; width: 100%; height: 10px; border-radius: 5px;">
+          <div id="boss-hp-fill" class="hp-fill" style="background: var(--color-red); border-radius: 5px;"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
