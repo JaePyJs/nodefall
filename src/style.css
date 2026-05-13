@@ -669,6 +669,7 @@ body {
 .btn-secondary-menu:hover {
   background: rgba(0, 245, 255, 0.15);
   border-color: var(--color-cyan);
+  color: var(--color-cyan);
 }
 
 .btn-tertiary-menu {
@@ -680,8 +681,10 @@ body {
 }
 
 .btn-tertiary-menu:hover {
-  background: rgba(0, 245, 255, 0.15);
-  box-shadow: 0 0 10px rgba(0, 245, 255, 0.2);
+  background: rgba(0, 245, 255, 0.25);
+  border-color: var(--color-cyan);
+  color: var(--color-cyan);
+  box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
 }
 
 .menu-secondary-actions {

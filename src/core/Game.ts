@@ -116,7 +116,7 @@ export class Game {
             requestAnimationFrame(this.boundLoop);
 
         } catch (error) {
-            console.error('Initialization failed:', error);
+            console.error('Initialization failed:', error); console.error(error);
             this.showError(error instanceof Error ? error.message : 'Unknown fatal error');
         }
     }
@@ -342,7 +342,8 @@ export class Game {
 
     private initEvents(): void {
         this.input.onGridHover = (x, y) => {
-            if (this.state.status !== GameStatus.PLAYING) return;
+            // Allow placement when: playing, OR when tower type selected (prep phase)
+            if (this.state.status !== GameStatus.PLAYING && !this.selectedTowerType) return;
             
             if (this.selectedTowerType) {
                 const canPlace = this.grid.isPlaceable(x, y);
@@ -357,7 +358,8 @@ export class Game {
         };
 
         this.input.onGridClick = (x, y) => {
-            if (this.state.status !== GameStatus.PLAYING) return;
+            // Allow placement when: playing, OR when tower type selected (prep phase)
+            if (this.state.status !== GameStatus.PLAYING && !this.selectedTowerType) return;
 
             if (this.selectedTowerType) {
                 this.tryPlaceTower(x, y);
