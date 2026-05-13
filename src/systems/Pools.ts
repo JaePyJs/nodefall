@@ -33,9 +33,10 @@ export class DamageNumberPool {
 
     private release(el: HTMLElement): void {
         el.style.display = 'none';
-        if (el.parentNode) el.parentNode.removeChild(el);
+        el.remove();
         this.pool.push(el);
-        this.active = this.active.filter(e => e !== el);
+        const idx = this.active.indexOf(el);
+        if (idx >= 0) this.active.splice(idx, 1);
     }
 }
 

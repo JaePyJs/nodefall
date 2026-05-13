@@ -52,17 +52,7 @@ export class GameState {
     }
 
     public updateUI(): void {
-        const goldEl = document.getElementById('gold-counter');
-        const livesEl = document.getElementById('lives-counter');
-        const waveEl = document.getElementById('wave-counter');
-
-        if (goldEl) goldEl.innerText = this.gold.toString();
-        if (livesEl) {
-            livesEl.innerText = this.lives.toString();
-            if (this.lives < 5) livesEl.style.color = 'var(--color-red)';
-            else livesEl.style.color = '';
-        }
-        if (waveEl) waveEl.innerText = `${this.wave}/${this.maxWaves}`;
+        // HUD.update() handles DOM rendering. GameState is pure data.
     }
 
     public reset(): void {

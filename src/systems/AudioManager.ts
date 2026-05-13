@@ -77,10 +77,8 @@ export class AudioManager {
             console.warn(`[Audio] Sound not found: ${id}`);
             return;
         }
-        
         const state = howl.state();
-        console.log(`[Audio] Playing ${id}, state: ${state}`);
-        
+
         if (state === 'loaded') {
             try {
                 howl.play();

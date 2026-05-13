@@ -18,7 +18,6 @@ export class InputHandler {
 
         this.domElement.addEventListener('mousemove', this.onMouseMove.bind(this));
         this.domElement.addEventListener('click', this.onClick.bind(this));
-        window.addEventListener('keydown', this.onKeyDown.bind(this));
     }
 
     private onMouseMove(event: MouseEvent): void {
@@ -60,9 +59,5 @@ export class InputHandler {
         }
         
         return null;
-    }
-
-    private onKeyDown(_event: KeyboardEvent): void {
-        // Space to pause, ESC for menu, 1-5 for towers handled in Game.ts
     }
 }

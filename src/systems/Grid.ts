@@ -191,7 +191,6 @@ export class Grid {
         } else {
             // Tower blocks the path — revert
             this.cells[y][x] = oldType;
-            this.calculatePath();
             return false;
         }
     }

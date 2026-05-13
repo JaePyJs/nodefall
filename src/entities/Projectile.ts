@@ -8,11 +8,8 @@ function getProjectileMaterial(color: number): THREE.MeshLambertMaterial {
     const key = color.toString(16);
     if (!PROJECTILE_MATERIALS.has(key)) {
         PROJECTILE_MATERIALS.set(key, new THREE.MeshLambertMaterial({
-            color: color,
-            emissive: color,
-            emissiveIntensity: 0.8,
-            transparent: true,
-            opacity: 0.8
+            color, emissive: color, emissiveIntensity: 0.8,
+            transparent: true, opacity: 0.8
         }));
     }
     return PROJECTILE_MATERIALS.get(key)!;
@@ -34,6 +31,7 @@ export class Projectile {
     private scene: THREE.Scene;
     private trailPositions: THREE.Vector3[] = [];
     private trailLine: THREE.Line | null = null;
+    private trailGeometry: THREE.BufferGeometry;
     private trailMaterial: THREE.LineBasicMaterial;
 
     constructor(scene: THREE.Scene, startPos: THREE.Vector3, target: Enemy, damage: number, color: number) {
@@ -50,10 +48,9 @@ export class Projectile {
             this.trailPositions.push(startPos.clone().add(new THREE.Vector3(0, 0.5, 0)));
         }
 
+        this.trailGeometry = new THREE.BufferGeometry();
         this.trailMaterial = new THREE.LineBasicMaterial({
-            color: color,
-            transparent: true,
-            opacity: 0.5
+            color, transparent: true, opacity: 0.5
         });
     }
 
@@ -81,18 +78,15 @@ export class Projectile {
     private updateTrail(): void {
         const pts: THREE.Vector3[] = [];
         for (let i = 0; i < this.trailPositions.length - 1; i++) {
-            pts.push(this.trailPositions[i].clone());
-            pts.push(this.trailPositions[i + 1].clone());
+            pts.push(this.trailPositions[i]);
+            pts.push(this.trailPositions[i + 1]);
         }
         if (pts.length < 2) return;
 
-        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        this.trailGeometry.setFromPoints(pts);
         if (!this.trailLine) {
-            this.trailLine = new THREE.Line(geo, this.trailMaterial);
+            this.trailLine = new THREE.Line(this.trailGeometry, this.trailMaterial);
             this.scene.add(this.trailLine);
-        } else {
-            this.trailLine.geometry.dispose();
-            this.trailLine.geometry = geo;
         }
     }
 
@@ -109,8 +103,8 @@ export class Projectile {
         this.scene.remove(this.mesh);
         if (this.trailLine) {
             this.scene.remove(this.trailLine);
-            this.trailLine.geometry.dispose();
-            this.trailLine = null;
+            this.trailGeometry.dispose();
         }
+        this.trailMaterial.dispose();
     }
 }

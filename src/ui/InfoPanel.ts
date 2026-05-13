@@ -28,7 +28,7 @@ export class InfoPanel {
         const upgradeStats = isMaxLevel ? null : tower.upgradeStats;
         const upgradeCost = isMaxLevel ? 'MAX' : upgradeStats!.cost;
         const canUpgrade = !isMaxLevel && this.gameState.gold >= (upgradeCost as number);
-        const sellValue = Math.floor(tower.cost * 0.5);
+        const sellValue = Math.floor(tower.totalInvestment * 0.5);
 
         content.innerHTML = `
             <div class="info-header">${tower.name} LV.${tower.level}</div>

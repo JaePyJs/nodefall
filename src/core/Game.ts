@@ -7,8 +7,8 @@ import { WaveManager } from '../systems/WaveManager';
 import { Tower } from '../entities/Tower';
 import { FirewallTower, EncryptionNode, OverloadCannon, EMPTower, IceNode } from '../entities/TowerTypes';
 import { Enemy } from '../entities/Enemy';
-import { DataPacket, WormProcess } from '../entities/EnemyTypes';
-import { Projectile } from '../entities/Projectile';
+import { disposeEnemyCache, DataPacket, WormProcess, KernelBoss } from '../entities/EnemyTypes';
+import { Projectile, disposeProjectileCache } from '../entities/Projectile';
 import { DamageNumberPool } from '../systems/Pools';
 import { ParticleSystem } from '../systems/Particles';
 import { AudioManager } from '../systems/AudioManager';
@@ -374,8 +374,6 @@ export class Game {
         };
 
         this.waveManager.onEnemySpawn = (enemy) => {
-            const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
-            enemy.updatePath(latestPath); 
             this.enemies.push(enemy);
         };
 
@@ -397,7 +395,7 @@ export class Game {
             // grid.loadMap() will reset the entire grid anyway
             let totalRefund = 0;
             for (const tower of this.towers) {
-                totalRefund += Math.floor(tower.cost * 0.8);
+                totalRefund += Math.floor(tower.totalInvestment * 0.8);
                 tower.dispose();
             }
             this.towers = [];
@@ -480,8 +478,10 @@ export class Game {
         this.waveManager.isWaveActive = false;
         this.waveManager.reset();
 
-        // Release shared enemy geometry/material cache to prevent stale GPU state
-        // Release shared projectile caches
+        // Release shared geometry/material caches to prevent stale GPU state on restart
+        disposeEnemyCache();
+        disposeProjectileCache();
+        this.particles.dispose();
     }
 
     private selectTowerType(type: TowerType): void {
@@ -567,18 +567,27 @@ export class Game {
         }
     }
 
+    private pendingPathRecalc = false;
+
     private handleSell(tower: Tower): void {
         // Sell = 50% of total investment (base + all upgrades)
         const sellValue = Math.floor(tower.totalInvestment * 0.5);
         this.state.addGold(sellValue);
         this.audio.play('tower_sell');
         tower.dispose();
-        // Silent removal — no path recalc per sell
         this.grid.removeTowerSilent(tower.gridX, tower.gridY);
         const idx = this.towers.indexOf(tower);
         if (idx >= 0) this.towers.splice(idx, 1);
-        // ONE path recalc after all sells
-        this.grid.calculatePath();
+
+        // Batch path recalc — only ONE after burst of rapid sells
+        if (!this.pendingPathRecalc) {
+            this.pendingPathRecalc = true;
+            queueMicrotask(() => {
+                this.grid.calculatePath();
+                this.pendingPathRecalc = false;
+            });
+        }
+
         this.selectedTower = null;
         this.hud.update();
         this.infoPanel.update(null);
@@ -678,8 +687,6 @@ export class Game {
 
                 enemy.onDeath(this.state);
                 this.hud.update();
-                this.towerPanel.updateAffordability(this.state.gold);
-                if (this.selectedTower) this.infoPanel.update(this.selectedTower);
 
                 enemy.dispose();
                 this.enemies.splice(i, 1);
@@ -727,7 +734,7 @@ export class Game {
         const bossContainer = document.getElementById('boss-hp-container');
         if (!bossContainer || bossContainer.style.display === 'none') return;
 
-        const boss = this.enemies.find(e => (e as any).constructor.name === 'KernelBoss');
+        const boss = this.enemies.find(e => e instanceof KernelBoss);
         const hpFill = document.getElementById('boss-hp-fill') as HTMLElement;
         if (!hpFill) return;
 
