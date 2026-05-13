@@ -169,8 +169,12 @@ export class Game {
 
     private initKeyboard(): void {
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' || e.key.toLowerCase() === 'e') {
+            if (e.key === 'Escape') {
                 this.cancelPlacement();
+            } else if (e.key.toLowerCase() === 'e' && this.selectedTower) {
+                this.handleSell(this.selectedTower);
+            } else if (e.key.toLowerCase() === 'q' && this.selectedTower) {
+                this.handleUpgrade(this.selectedTower);
             } else if (e.key === '1') {
                 this.selectTowerType('FIREWALL');
             } else if (e.key === '2') {

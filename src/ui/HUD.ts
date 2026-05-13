@@ -12,6 +12,7 @@ export class HUD {
         const goldEl = document.getElementById('gold-counter');
         const livesEl = document.getElementById('lives-counter');
         const waveEl = document.getElementById('wave-counter');
+        const scoreEl = document.getElementById('score-counter');
 
         if (goldEl) goldEl.innerText = this.gameState.gold.toString();
         if (livesEl) {
@@ -20,5 +21,6 @@ export class HUD {
             else livesEl.style.color = 'var(--color-cyan)';
         }
         if (waveEl) waveEl.innerText = `${this.gameState.wave}/${this.gameState.maxWaves}`;
+        if (scoreEl) scoreEl.innerText = this.gameState.score.toString();
     }
 }
