@@ -22,11 +22,21 @@ export class WaveManager {
     public onWaveComplete: (() => void) | null = null;
     public onEnemySpawn: ((enemy: Enemy) => void) | null = null;
     public onMapChange: ((index: number) => void) | null = null;
+    public onBossWave: (() => void) | null = null;
 
     constructor(scene: THREE.Scene, gameState: GameState, worldPath: THREE.Vector3[]) {
         this.scene = scene;
         this.gameState = gameState;
         this.worldPath = worldPath;
+    }
+
+    /** Update path reference when map changes — keeps new enemy spawns on correct map path. */
+    public updateWorldPath(newPath: THREE.Vector3[]): void {
+        this.worldPath = newPath;
+    }
+
+    public get waveIndex(): number {
+        return this.currentWaveIndex;
     }
 
     public startWave(): void {
@@ -53,6 +63,7 @@ export class WaveManager {
         if (this.currentWaveIndex % 5 === 0) {
             const bossContainer = document.getElementById('boss-hp-container');
             if (bossContainer) bossContainer.style.display = 'block';
+            if (this.onBossWave) this.onBossWave();
         }
     }
 
@@ -62,10 +73,15 @@ export class WaveManager {
         
         if (isBoss) {
             this.spawnQueue.push({ type: 'KernelBoss', delay: 0 });
-            // Add some support enemies based on wave
-            const supportCount = wave;
+            // Scale support enemies with wave, diversify types by boss number
+            const supportCount = Math.min(5 + wave, 15);
             for (let i = 0; i < supportCount; i++) {
-                this.spawnQueue.push({ type: 'DataPacket', delay: 0.5 });
+                let type = 'DataPacket';
+                const r = Math.random();
+                if (wave >= 10 && r > 0.6) type = 'WormProcess';
+                else if (wave >= 15 && r > 0.75) type = 'DaemonThread';
+                else if (wave >= 18 && r > 0.85) type = 'Rootkit';
+                this.spawnQueue.push({ type, delay: 0.5 });
             }
         } else {
             // Gradual difficulty increase
@@ -93,7 +109,8 @@ export class WaveManager {
             return;
         }
 
-        if (this.gameState.status === GameStatus.PAUSED) return;
+        // Note: Game loop checks isPaused before calling this, so PAUSED check here is redundant
+        // Removed: if (this.gameState.status === GameStatus.PAUSED) return;
 
         if (!this.isWaveActive) {
             if (this.prepTimer > 0) {
@@ -123,11 +140,19 @@ export class WaveManager {
             case 'WormProcess': enemy = new WormProcess(this.scene, this.worldPath); break;
             case 'DaemonThread': enemy = new DaemonThread(this.scene, this.worldPath); break;
             case 'Rootkit': enemy = new Rootkit(this.scene, this.worldPath); break;
-            case 'KernelBoss': enemy = new KernelBoss(this.scene, this.worldPath); break;
+            case 'KernelBoss': enemy = new KernelBoss(this.scene, this.worldPath, this.currentWaveIndex); break;
             default: enemy = new DataPacket(this.scene, this.worldPath); break;
         }
         
         if (this.onEnemySpawn) this.onEnemySpawn(enemy);
+    }
+
+    public reset(): void {
+        this.currentWaveIndex = 0;
+        this.isWaveActive = false;
+        this.prepTimer = 15;
+        this.spawnQueue = [];
+        this.spawnTimer = 0;
     }
 
     private endWave(): void {

@@ -55,6 +55,12 @@ export const DocsPanel = (() => {
         (overlayEl as HTMLElement).style.display = 'none';
         _isOpen = false;
 
+        // Remove ESC listener to prevent leak
+        if (escHandler) {
+            window.removeEventListener('keydown', escHandler);
+            escHandler = null;
+        }
+
         // Restore game state — only when we saved it (i.e., not opened from MENU)
         if (gameState && gameState.status !== GameStatus.MENU) {
             gameState.isPaused = savedIsPaused;
@@ -265,7 +271,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">150g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 4</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 2</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -275,7 +281,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">200g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 8</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 3</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -285,7 +291,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">250g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 12</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 4</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -295,7 +301,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">175g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 16</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 5</div>
                 </div>
             </div>
         </div>

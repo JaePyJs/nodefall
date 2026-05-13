@@ -12,11 +12,14 @@ export abstract class Tower {
     public range!: number;
     public fireRate!: number;
     public cost!: number;
+    public totalInvestment: number = 0;
     public level: number = 1;
     public killCount: number = 0;
     public mesh: THREE.Group;
     public rangeCircle: THREE.Mesh | null = null;
     protected cooldown: number = 0;
+    private scaleTimer: ReturnType<typeof setTimeout> | null = null;
+    private fireAnimTimer: ReturnType<typeof setTimeout> | null = null;
     protected scene: THREE.Scene;
 
     constructor(scene: THREE.Scene, gridX: number, gridY: number, worldPos: THREE.Vector3) {
@@ -25,7 +28,7 @@ export abstract class Tower {
         this.gridX = gridX;
         this.gridY = gridY;
         this.position = worldPos.clone();
-        
+
         this.mesh = new THREE.Group();
         this.mesh.position.copy(this.position);
         this.scene.add(this.mesh);
@@ -33,9 +36,9 @@ export abstract class Tower {
 
     private createRangeCircle(): void {
         const geometry = new THREE.RingGeometry(this.range - 0.05, this.range + 0.05, 64);
-        const material = new THREE.MeshBasicMaterial({ 
-            color: this.color, 
-            transparent: true, 
+        const material = new THREE.MeshBasicMaterial({
+            color: this.color,
+            transparent: true,
             opacity: 0.3,
             side: THREE.DoubleSide
         });
@@ -66,13 +69,17 @@ export abstract class Tower {
         this.damage = stats.damage;
         this.range = stats.range;
         this.fireRate = stats.fireRate;
+        this.totalInvestment += stats.cost;
         this.level++;
-        
+
         this.updateRangeCircle();
 
-        // Visual feedback for upgrade
+        if (this.scaleTimer) clearTimeout(this.scaleTimer);
         this.mesh.scale.set(1.2, 1.2, 1.2);
-        setTimeout(() => this.mesh.scale.set(1, 1, 1), 200);
+        this.scaleTimer = setTimeout(() => {
+            this.mesh.scale.set(1, 1, 1);
+            this.scaleTimer = null;
+        }, 200);
         return true;
     }
 
@@ -86,21 +93,66 @@ export abstract class Tower {
     }
 
     protected findTarget(enemies: Enemy[]): Enemy | null {
-        let closest: Enemy | null = null;
-        let minDist = this.range;
+        let best: Enemy | null = null;
+        let bestProgress = -1;
 
         for (const enemy of enemies) {
             const dist = this.position.distanceTo(enemy.mesh.position);
-            if (dist < minDist) {
-                minDist = dist;
-                closest = enemy;
+            if (dist < this.range && enemy.pathIndex > bestProgress) {
+                bestProgress = enemy.pathIndex;
+                best = enemy;
             }
         }
 
-        return closest;
+        return best;
+    }
+
+    /** Play firing animation — recoil + muzzle flash. Call from subclass update() when projectile fires. */
+    protected animateFire(): void {
+        const body = this.mesh.children[0] as THREE.Mesh | undefined;
+        if (!body) return;
+
+        this.mesh.scale.set(1.08, 1.08, 1.08);
+        if (this.fireAnimTimer) clearTimeout(this.fireAnimTimer);
+        this.fireAnimTimer = setTimeout(() => {
+            this.mesh.scale.set(1, 1, 1);
+            this.fireAnimTimer = null;
+        }, 120);
+
+        const mat = body.material as THREE.MeshStandardMaterial;
+        const oldEmissive = mat.emissive.getHex();
+        mat.emissive.set(0xffffff);
+        mat.emissiveIntensity = 1.5;
+        setTimeout(() => {
+            mat.emissive.set(oldEmissive);
+            mat.emissiveIntensity = 0.3;
+        }, 80);
     }
 
     public dispose(): void {
+        if (this.rangeCircle) {
+            this.mesh.remove(this.rangeCircle);
+            this.rangeCircle.geometry.dispose();
+            (this.rangeCircle.material as THREE.Material).dispose();
+        }
+        this.mesh.traverse((obj) => {
+            if (obj instanceof THREE.Mesh) {
+                obj.geometry.dispose();
+                if (Array.isArray(obj.material)) {
+                    obj.material.forEach(m => m.dispose());
+                } else {
+                    obj.material.dispose();
+                }
+            }
+        });
         this.scene.remove(this.mesh);
+        if (this.scaleTimer) {
+            clearTimeout(this.scaleTimer);
+            this.scaleTimer = null;
+        }
+        if (this.fireAnimTimer) {
+            clearTimeout(this.fireAnimTimer);
+            this.fireAnimTimer = null;
+        }
     }
 }

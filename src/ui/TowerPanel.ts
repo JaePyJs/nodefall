@@ -22,7 +22,7 @@ export class TowerPanel {
             </div>
         `;
 
-        types.forEach(type => {
+        types.forEach((type, idx) => {
             const stats = TOWER_STATS[type];
             const unlockWave = TIER_UNLOCKS[type];
             const card = document.createElement('div');
@@ -31,7 +31,7 @@ export class TowerPanel {
             card.dataset.wave = unlockWave.toString();
             card.innerHTML = `
                 <div class="tower-name">
-                    <span>${stats.name}</span>
+                    <span><kbd>${idx + 1}</kbd> ${stats.name}</span>
                     <span class="tower-price">${stats.cost}g</span>
                 </div>
                 <div class="tower-desc">${stats.description}</div>
@@ -58,7 +58,7 @@ export class TowerPanel {
 
     public updateAffordability(gold: number): void {
         const types: TowerType[] = ['FIREWALL', 'ENCRYPTION', 'OVERLOAD', 'EMP', 'ICE'];
-        types.forEach(type => {
+        types.forEach((type) => {
             const card = document.getElementById(`card-${type}`);
             if (card) {
                 if (gold < TOWER_STATS[type].cost) {
@@ -74,7 +74,7 @@ export class TowerPanel {
     public updateUnlock(wave: number): void {
         this.currentWave = wave;
         const types: TowerType[] = ['FIREWALL', 'ENCRYPTION', 'OVERLOAD', 'EMP', 'ICE'];
-        types.forEach(type => {
+        types.forEach((type) => {
             const card = document.getElementById(`card-${type}`);
             const unlockEl = card?.querySelector('.tower-unlock') as HTMLElement;
             if (!card || !unlockEl) return;

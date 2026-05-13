@@ -45,9 +45,9 @@ export class InfoPanel {
                         data-new-fr="${upgradeStats!.fireRate.toFixed(1)}"
                         data-old-dmg="${Math.round(tower.damage)}"
                         data-old-range="${tower.range.toFixed(1)}"
-                        data-old-fr="${tower.fireRate.toFixed(1)}">UPGRADE (${upgradeCost}g)</button>`
+                        data-old-fr="${tower.fireRate.toFixed(1)}"><kbd>Q</kbd> UPGRADE (${upgradeCost}g)</button>`
                 }
-                <button class="btn btn-sell" id="sell-btn">SELL (${sellValue}g)</button>
+                <button class="btn btn-sell" id="sell-btn"><kbd>E</kbd> SELL (${sellValue}g)</button>
             </div>
         `;
 

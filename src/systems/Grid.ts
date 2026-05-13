@@ -10,6 +10,8 @@ export class Grid {
     private pathfinder: Pathfinder;
     public currentPath: Position[] = [];
     private placementRangeCircle: THREE.Mesh | null = null;
+    private pulseState: { material: THREE.MeshStandardMaterial; elapsed: number } | null = null;
+    private rangeCircleFade: { elapsed: number } | null = null;
     private currentMapIndex: number = 0;
     private mapStart: Position = { x: 0, y: 0 };
     private mapEnd: Position = { x: 0, y: 0 };
@@ -96,21 +98,23 @@ export class Grid {
 
     private initGrid(): void {
         const geometry = new THREE.BoxGeometry(TILE_SIZE - 0.1, 0.2, TILE_SIZE - 0.1);
-        
+
         for (let y = 0; y < GRID_ROWS; y++) {
             this.cellMeshes[y] = [];
             for (let x = 0; x < GRID_COLS; x++) {
                 const type = this.cells[y][x];
                 const color = this.getColorForType(type);
-                
+                const isPath = type === TileType.PATH || type === TileType.START || type === TileType.END;
+                const isTower = type === TileType.TOWER;
+
                 const material = new THREE.MeshStandardMaterial({
                     color: color,
                     transparent: true,
-                    opacity: 0.4,
+                    opacity: isPath ? 0.85 : (isTower ? 0.6 : 0.55),
                     emissive: color,
-                    emissiveIntensity: (type === TileType.PATH || type === TileType.START || type === TileType.END) ? 0.5 : 0.05,
-                    metalness: 0.5,
-                    roughness: 0.2
+                    emissiveIntensity: isPath ? 0.5 : (isTower ? 0.3 : 0.12),
+                    metalness: 0.4,
+                    roughness: 0.3
                 });
 
                 const mesh = new THREE.Mesh(geometry, material);
@@ -119,7 +123,7 @@ export class Grid {
                     0,
                     (y - GRID_ROWS / 2 + 0.5) * TILE_SIZE
                 );
-                
+
                 this.scene.add(mesh);
                 this.cellMeshes[y][x] = mesh;
             }
@@ -193,6 +197,16 @@ export class Grid {
     }
 
     public removeTower(x: number, y: number): void {
+        this._removeTowerCell(x, y);
+        this.calculatePath();
+    }
+
+    /** Remove tower cell without recalculating path — use for batch operations. Caller must call calculatePath once after all removals. */
+    public removeTowerSilent(x: number, y: number): void {
+        this._removeTowerCell(x, y);
+    }
+
+    private _removeTowerCell(x: number, y: number): void {
         this.cells[y][x] = TileType.BUILDABLE;
         const mesh = this.cellMeshes[y][x];
         const mat = mesh.material as THREE.MeshStandardMaterial;
@@ -200,7 +214,6 @@ export class Grid {
         mat.color.set(COLORS.GRID);
         mat.emissive.set(COLORS.GRID);
         mat.emissiveIntensity = 0;
-        this.calculatePath();
     }
 
     public getWorldPosition(x: number, y: number): THREE.Vector3 {
@@ -242,6 +255,8 @@ export class Grid {
             mat.emissive.set(color);
             mat.emissiveIntensity = 0.8;
             this.hoveredCell = { x, y };
+            // Start pulse animation on hovered cell
+            this.pulseState = { material: mat, elapsed: 0 };
         }
     }
 
@@ -252,16 +267,17 @@ export class Grid {
     public showPlacementRange(x: number, y: number, range: number, color: number): void {
         if (!this.placementRangeCircle) {
             const geometry = new THREE.RingGeometry(range - 0.05, range + 0.05, 64);
-            const material = new THREE.MeshBasicMaterial({ 
-                color: color, 
-                transparent: true, 
-                opacity: 0.4,
+            const material = new THREE.MeshBasicMaterial({
+                color: color,
+                transparent: true,
+                opacity: 0,
                 side: THREE.DoubleSide
             });
             this.placementRangeCircle = new THREE.Mesh(geometry, material);
             this.placementRangeCircle.rotation.x = -Math.PI / 2;
             this.placementRangeCircle.position.y = 0.2;
             this.scene.add(this.placementRangeCircle);
+            this.rangeCircleFade = { elapsed: 0 };
         }
 
         const worldPos = this.getWorldPosition(x, y);
@@ -270,10 +286,67 @@ export class Grid {
 
     public hidePlacementRange(): void {
         this.clearHover();
+        this.rangeCircleFade = null;
         if (this.placementRangeCircle) {
             this.scene.remove(this.placementRangeCircle);
             this.placementRangeCircle.geometry.dispose();
             this.placementRangeCircle = null;
         }
+    }
+
+    /** Advance pulse animation — call each frame from Game.loop. */
+    public update(delta: number): void {
+        if (this.pulseState) {
+            this.pulseState.elapsed += delta;
+            const cycle = 0.6; // 600ms loop
+            const t = (this.pulseState.elapsed % cycle) / cycle;
+            const pulse = Math.sin(t * Math.PI * 2) * 0.5 + 0.5;
+            const intensity = 0.2 + pulse * 0.3; // 0.2→0.5→0.2
+            this.pulseState.material.emissiveIntensity = intensity;
+            if (this.pulseState.elapsed > 3) {
+                this.pulseState.material.emissiveIntensity = 0.12;
+                this.pulseState = null;
+            }
+        }
+
+        if (this.rangeCircleFade) {
+            this.rangeCircleFade.elapsed += delta;
+            const progress = Math.min(this.rangeCircleFade.elapsed / 0.15, 1); // 150ms fade-in
+            const mat = this.placementRangeCircle!.material as THREE.MeshBasicMaterial;
+            mat.opacity = progress * 0.4;
+            if (progress >= 1) this.rangeCircleFade = null;
+        }
+    }
+
+    /** Spawn expanding ring animation at world position — called on tower place. */
+    public spawnPlacementRing(worldPos: THREE.Vector3, color: number): void {
+        const geometry = new THREE.RingGeometry(0.1, 0.3, 32);
+        const material = new THREE.MeshBasicMaterial({
+            color: color,
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(geometry, material);
+        ring.rotation.x = -Math.PI / 2;
+        ring.position.set(worldPos.x, 0.3, worldPos.z);
+        this.scene.add(ring);
+
+        const startTime = Date.now();
+        const animate = () => {
+            const elapsed = (Date.now() - startTime) / 1000;
+            if (elapsed > 0.3) {
+                this.scene.remove(ring);
+                ring.geometry.dispose();
+                material.dispose();
+                return;
+            }
+            const progress = elapsed / 0.3;
+            const scale = 1 + progress * (3 - 1);
+            ring.scale.set(scale, scale, scale);
+            material.opacity = 0.8 * (1 - progress);
+            requestAnimationFrame(animate);
+        };
+        requestAnimationFrame(animate);
     }
 }

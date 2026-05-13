@@ -7,10 +7,11 @@ import { WaveManager } from '../systems/WaveManager';
 import { Tower } from '../entities/Tower';
 import { FirewallTower, EncryptionNode, OverloadCannon, EMPTower, IceNode } from '../entities/TowerTypes';
 import { Enemy } from '../entities/Enemy';
-import { DataPacket, WormProcess } from '../entities/EnemyTypes';
-import { Projectile } from '../entities/Projectile';
+import { DataPacket, WormProcess, disposeEnemyCache } from '../entities/EnemyTypes';
+import { Projectile, disposeProjectileCache } from '../entities/Projectile';
 import { DamageNumberPool } from '../systems/Pools';
 import { ParticleSystem } from '../systems/Particles';
+import { AudioManager } from '../systems/AudioManager';
 import { GameStatus, type TowerType } from '../types';
 import { TOWER_STATS, MAPS, TIER_UNLOCKS } from '../constants';
 
@@ -30,6 +31,7 @@ export class Game {
     private waveManager!: WaveManager;
     private damagePool!: DamageNumberPool;
     private particles!: ParticleSystem;
+    private audio!: AudioManager;
 
     // UI Instances
     private hud!: HUD;
@@ -45,12 +47,16 @@ export class Game {
     private selectedTowerType: TowerType | null = null;
     private selectedTower: Tower | null = null;
     private lastTime: number = 0;
+    private lastVisibilityHidden: boolean = false;
 
     // Persistent UI elements for effects
     private flashOverlay!: HTMLDivElement;
-    private screenShakeContainer!: HTMLElement;
+    // Camera shake state
+    private screenShake: { offsetX: number; offsetY: number; elapsed: number; duration: number; intensity: number; } | null = null;
 
     private boundLoop: (timestamp: number) => void;
+    private activeMapNotification: HTMLDivElement | null = null;
+    private currentMapNotificationTimeout: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
         this.boundLoop = this.loop.bind(this);
@@ -68,6 +74,7 @@ export class Game {
             this.grid = new Grid(this.renderer.scene);
             this.damagePool = new DamageNumberPool();
             this.particles = new ParticleSystem(this.renderer.scene);
+            this.audio = new AudioManager();
             
             this.updateLoading(60, 'DECRYPTING PATHS...');
             const worldPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
@@ -93,6 +100,15 @@ export class Game {
             this.initKeyboard();
             this.initHUDButtons();
             this.menu.setEnabled(true);
+
+            // Pause game when tab is hidden — prevents delta explosion on return
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.lastVisibilityHidden = true;
+                } else {
+                    this.lastVisibilityHidden = false;
+                }
+            });
             
             setTimeout(() => this.finishLoading(), 800);
             requestAnimationFrame(this.boundLoop);
@@ -107,16 +123,13 @@ export class Game {
         this.flashOverlay = document.createElement('div');
         this.flashOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(255,0,0,0);pointer-events:none;z-index:1000;transition:background 0.1s;';
         document.body.appendChild(this.flashOverlay);
-        this.screenShakeContainer = document.getElementById('game-container')!;
     }
 
-    private triggerFlashEffect(): void {
-        this.flashOverlay.style.background = 'rgba(255,0,0,0.3)';
-        this.screenShakeContainer.classList.add('shake');
-        setTimeout(() => {
-            this.flashOverlay.style.background = 'rgba(255,0,0,0)';
-            this.screenShakeContainer.classList.remove('shake');
-        }, 200);
+    private triggerFlashEffect(severity: 'normal' | 'boss' | 'core' = 'normal'): void {
+        const cfg = { normal: { intensity: 0.5, duration: 0.15 }, boss: { intensity: 1.2, duration: 0.2 }, core: { intensity: 2.0, duration: 0.3 } }[severity];
+        this.screenShake = { offsetX: 0, offsetY: 0, elapsed: 0, duration: cfg.duration, intensity: cfg.intensity };
+        this.flashOverlay.style.background = severity === 'core' ? 'rgba(255,0,0,0.5)' : 'rgba(255,0,0,0.3)';
+        setTimeout(() => { this.flashOverlay.style.background = 'rgba(255,0,0,0)'; }, 150);
     }
 
     private handleWormSplit(enemy: WormProcess): void {
@@ -138,8 +151,18 @@ export class Game {
         if (pauseBtn) {
             pauseBtn.onclick = () => {
                 this.state.isPaused = !this.state.isPaused;
-                this.state.status = this.state.isPaused ? GameStatus.PAUSED : GameStatus.PLAYING;
                 pauseBtn.innerText = this.state.isPaused ? 'RESUME' : 'PAUSE';
+            };
+        }
+
+        const speedBtn = document.getElementById('speed-btn');
+        if (speedBtn) {
+            speedBtn.onclick = () => {
+                const speeds = [1, 2, 3];
+                const currentIdx = speeds.indexOf(this.state.gameSpeed);
+                const nextIdx = (currentIdx + 1) % speeds.length;
+                this.state.gameSpeed = speeds[nextIdx];
+                speedBtn.innerText = `${this.state.gameSpeed}x`;
             };
         }
     }
@@ -205,6 +228,10 @@ export class Game {
 
     /** Map transition notification overlay */
     private showMapChangeNotification(mapIndex: number, refund: number, bonus: number): void {
+        // Remove any existing notification to prevent stacking
+        if (this.activeMapNotification) {
+            this.activeMapNotification.remove();
+        }
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(5,5,20,0.92);border:2px solid #00f5ff;border-radius:12px;padding:24px 40px;text-align:center;z-index:1500;color:#fff;font-family:monospace;';
         overlay.innerHTML = `
@@ -216,11 +243,15 @@ export class Game {
             </div>
             <div style="font-size:0.7rem;margin-top:12px;color:var(--text-secondary);">Resuming in 3s...</div>
         `;
-        document.body.appendChild(overlay);
-        setTimeout(() => {
+        this.activeMapNotification = overlay;
+        this.currentMapNotificationTimeout = window.setTimeout(() => {
             overlay.style.transition = 'opacity 0.4s';
             overlay.style.opacity = '0';
-            setTimeout(() => overlay.remove(), 400);
+            this.currentMapNotificationTimeout = window.setTimeout(() => {
+                overlay.remove();
+                this.activeMapNotification = null;
+                this.currentMapNotificationTimeout = null;
+            }, 400);
         }, 2500);
     }
 
@@ -264,36 +295,37 @@ export class Game {
         };
 
         this.waveManager.onMapChange = (index) => {
-            // Pause gameplay so players have time to understand the new map
             this.state.isPaused = true;
-            
-            // Refund all towers before map swap so player can rebuild on new path
+
+            // Refund all towers — dispose only, DON'T call removeTower (which triggers calculatePath)
+            // grid.loadMap() will reset the entire grid anyway
             let totalRefund = 0;
-            for (let i = this.towers.length - 1; i >= 0; i--) {
-                totalRefund += Math.floor(this.towers[i].cost * 0.8);
-                this.towers[i].dispose();
-                this.grid.removeTower(this.towers[i].gridX, this.towers[i].gridY);
+            for (const tower of this.towers) {
+                totalRefund += Math.floor(tower.cost * 0.8);
+                tower.dispose();
             }
             this.towers = [];
             this.selectedTower = null;
             this.infoPanel.update(null);
-            
-            // Give refund + bonus map change gold
+
             const bonus = 50;
             this.state.addGold(totalRefund + bonus);
-            
-            // Load new map path
+
+            // Load new map — resets grid, calculates fresh path in ONE call
             this.grid.loadMap(index);
             const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
+            this.waveManager.updateWorldPath(latestPath);
             this.enemies.forEach(e => e.updatePath(latestPath));
-            
-            // Show map change notification
+
             this.showMapChangeNotification(index, totalRefund, bonus);
 
-            // Unpause after 3 seconds so player has time to build
             setTimeout(() => {
                 this.state.isPaused = false;
             }, 3000);
+        };
+
+        this.waveManager.onBossWave = () => {
+            this.audio.play('boss_incoming');
         };
 
         document.getElementById('restart-btn')!.onclick = () => this.resetGame();
@@ -307,9 +339,14 @@ export class Game {
         this.towers.forEach(t => t.dispose());
         this.towers = [];
 
+        const savedSpeed = this.state.gameSpeed;
         this.state.reset();
-        // Reset status to MENU (not PLAYING)
         this.state.status = GameStatus.MENU;
+        this.state.gameSpeed = savedSpeed; // Preserve speed across restarts
+
+        // Update speed button to reflect restored speed
+        const speedBtn = document.getElementById('speed-btn');
+        if (speedBtn) speedBtn.innerText = `${savedSpeed}x`;
         this.grid.loadMap(0);
         this.selectedTowerType = null;
         this.selectedTower = null;
@@ -321,10 +358,29 @@ export class Game {
         this.menu.showMenu();
         document.getElementById('game-over-overlay')!.style.display = 'none';
         document.getElementById('boss-hp-container')!.style.display = 'none';
+
+        // Clean up lingering damage numbers and their timers
+        this.damagePool?.clear();
+
+        // Kill pending map notification timeout
+        if (this.currentMapNotificationTimeout) {
+            clearTimeout(this.currentMapNotificationTimeout);
+            this.currentMapNotificationTimeout = null;
+        }
+
+        // Clean up orphaned map change notification overlays
+        document.querySelectorAll('body > div[style*="z-index: 1500"]').forEach(el => el.remove());
+
         this.hud.update();
         this.towerPanel.updateAffordability(this.state.gold);
         this.towerPanel.updateUnlock(1);
         this.waveManager.isWaveActive = false;
+        this.waveManager.reset();
+
+        // Release shared enemy geometry/material cache to prevent stale GPU state
+        disposeEnemyCache();
+        // Release shared projectile caches
+        disposeProjectileCache();
     }
 
     private selectTowerType(type: TowerType): void {
@@ -370,12 +426,13 @@ export class Game {
             }
             
             this.towers.push(tower);
+            this.audio.play('tower_place');
+            this.grid.spawnPlacementRing(worldPos, stats.color);
             this.grid.hidePlacementRange(); 
             this.selectedTowerType = null; 
             this.towerPanel.highlightCard(null);
-
-            const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
-            this.enemies.forEach(e => e.updatePath(latestPath));
+            // Note: grid.placeTower() already recalculates path internally
+            // No need to update enemy paths here — they already have correct map path
         }
     }
 
@@ -399,6 +456,7 @@ export class Game {
     }
 
     private handleUpgrade(tower: Tower): void {
+        if (tower.level >= 3) return;
         const cost = tower.upgradeStats.cost;
         if (this.state.removeGold(cost)) {
             tower.upgrade();
@@ -409,25 +467,28 @@ export class Game {
     }
 
     private handleSell(tower: Tower): void {
-        // Refund base + upgrade investment = original base cost scaled by sell ratio
-        const sellValue = Math.floor(tower.cost * 0.5 * Math.pow(1.5, tower.level - 1));
-        this.state.addGold(Math.max(sellValue, Math.floor(tower.cost * 0.5)));
-        this.grid.removeTower(tower.gridX, tower.gridY);
+        // Sell = 50% of total investment (base + all upgrades)
+        const sellValue = Math.floor(tower.totalInvestment * 0.5);
+        this.state.addGold(sellValue);
+        this.audio.play('tower_sell');
         tower.dispose();
-        this.towers = this.towers.filter(t => t !== tower);
+        // Silent removal — no path recalc per sell
+        this.grid.removeTowerSilent(tower.gridX, tower.gridY);
+        const idx = this.towers.indexOf(tower);
+        if (idx >= 0) this.towers.splice(idx, 1);
+        // ONE path recalc after all sells
+        this.grid.calculatePath();
         this.selectedTower = null;
         this.hud.update();
         this.infoPanel.update(null);
         this.towerPanel.updateAffordability(this.state.gold);
-        
-        const latestPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
-        this.enemies.forEach(e => e.updatePath(latestPath));
     }
 
     private startGame(): void {
         this.state.status = GameStatus.PLAYING;
         this.menu.hideMenu();
         this.waveBanner.show(1);
+        this.audio.play('wave_start');
         this.hud.update();
         this.towerPanel.updateAffordability(this.state.gold);
         this.towerPanel.updateUnlock(1);
@@ -437,6 +498,14 @@ export class Game {
         requestAnimationFrame(this.boundLoop);
 
         const rawDelta = (timestamp - this.lastTime) / 1000;
+
+        // Tab switch: skip frame, reset time so enemies don't teleport on return
+        if (this.lastVisibilityHidden || rawDelta > 1.0) {
+            this.lastTime = timestamp;
+            this.lastVisibilityHidden = false;
+            this.renderer.render();
+            return;
+        }
         this.lastTime = timestamp;
 
         if (!this.state || this.state.status === GameStatus.MENU) return;
@@ -455,6 +524,7 @@ export class Game {
 
         this.waveManager.update(delta, this.enemies.length);
         this.particles.update(delta);
+        this.grid.update(delta);
 
         // Tower fire: creates projectiles (enemies may be updated mid-frame)
         this.towers.forEach(tower => {
@@ -480,10 +550,11 @@ export class Game {
             if (enemy.move(delta)) {
                 // Reached end — lose life, enemy escapes
                 this.state.removeLife(1);
+                this.audio.play('core_damage');
                 this.hud.update();
                 enemy.dispose();
                 this.enemies.splice(i, 1);
-                this.triggerFlashEffect();
+                this.triggerFlashEffect('core');
             } else if (enemy.hp <= 0) {
                 // Death processing (one place, one time)
                 const vector = enemy.mesh.position.clone().project(this.renderer.camera);
@@ -491,6 +562,7 @@ export class Game {
                 const y = (-(vector.y * 0.5) + 0.5) * window.innerHeight;
                 this.damagePool.spawn(x, y, `+${enemy.reward}g`, false);
                 this.particles.spawnExplosion(enemy.mesh.position, enemy.color);
+                this.audio.play('enemy_death');
 
                 if (enemy instanceof WormProcess) {
                     this.handleWormSplit(enemy);
@@ -507,13 +579,61 @@ export class Game {
             }
         }
 
-        if (this.state.lives <= 0 && (this.state.status as string) === GameStatus.GAME_OVER) {
+        if (this.state.lives <= 0) {
             const gameOverOverlay = document.getElementById('game-over-overlay');
             if (gameOverOverlay && gameOverOverlay.style.display !== 'flex') {
                 this.menu.showGameOver(this.state.wave, this.state.score, false);
             }
         }
 
+        this.updateBossHpBar();
+        this.applyScreenShake();
+
         this.renderer.render();
+    }
+
+    /** Apply camera shake offset before render — call every frame while shaking */
+    private applyScreenShake(): void {
+        if (!this.screenShake) return;
+        this.screenShake.elapsed += 0.016; // approx one frame
+        const t = this.screenShake.elapsed / this.screenShake.duration;
+        if (t >= 1) {
+            this.renderer.camera.position.x -= this.screenShake.offsetX;
+            this.renderer.camera.position.y -= this.screenShake.offsetY;
+            this.screenShake = null;
+            return;
+        }
+        const angle = Math.random() * Math.PI * 2;
+        const mag = this.screenShake.intensity * (1 - t);
+        const dx = Math.cos(angle) * mag;
+        const dy = Math.sin(angle) * mag;
+        this.renderer.camera.position.x += dx - this.screenShake.offsetX;
+        this.renderer.camera.position.y += dy - this.screenShake.offsetY;
+        this.screenShake.offsetX = dx;
+        this.screenShake.offsetY = dy;
+    }
+
+    /** Update boss HP bar overlay — called every frame during boss waves */
+    private updateBossHpBar(): void {
+        const bossContainer = document.getElementById('boss-hp-container');
+        if (!bossContainer || bossContainer.style.display === 'none') return;
+
+        const boss = this.enemies.find(e => (e as any).constructor.name === 'KernelBoss');
+        const hpFill = document.getElementById('boss-hp-fill') as HTMLElement;
+        if (!hpFill) return;
+
+        if (!boss) {
+            // Boss dead — hide container
+            bossContainer.style.display = 'none';
+            return;
+        }
+
+        const pct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+        hpFill.style.width = `${pct}%`;
+
+        // Color: green >60, yellow >30, red <=30
+        if (pct > 60) hpFill.style.background = 'var(--color-green)';
+        else if (pct > 30) hpFill.style.background = 'var(--color-yellow)';
+        else hpFill.style.background = 'var(--color-red)';
     }
 }

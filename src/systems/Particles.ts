@@ -3,24 +3,34 @@ import * as THREE from 'three';
 export class ParticleSystem {
     private scene: THREE.Scene;
     private particles: { mesh: THREE.Mesh, velocity: THREE.Vector3, life: number }[] = [];
+    // Shared geometry + material to avoid per-explosion GPU allocation
+    private sharedGeometry: THREE.BufferGeometry;
+    private particleMaterials: Map<string, THREE.MeshStandardMaterial> = new Map();
 
     constructor(scene: THREE.Scene) {
         this.scene = scene;
+        this.sharedGeometry = new THREE.SphereGeometry(0.08, 4, 4);
+    }
+
+    private getOrCreateMaterial(color: number): THREE.MeshStandardMaterial {
+        const key = color.toString(16);
+        if (!this.particleMaterials.has(key)) {
+            this.particleMaterials.set(key, new THREE.MeshStandardMaterial({
+                color: color,
+                emissive: color,
+                emissiveIntensity: 0.8,
+                transparent: true,
+                opacity: 0.9
+            }));
+        }
+        return this.particleMaterials.get(key)!;
     }
 
     public spawnExplosion(position: THREE.Vector3, color: number, count: number = 10): void {
-        // Create particles with varied shapes for visual interest
-        const geometry = new THREE.SphereGeometry(0.08, 4, 4);
-        const material = new THREE.MeshStandardMaterial({
-            color: color,
-            emissive: color,
-            emissiveIntensity: 0.8,
-            transparent: true,
-            opacity: 0.9
-        });
+        const material = this.getOrCreateMaterial(color);
 
         for (let i = 0; i < count; i++) {
-            const mesh = new THREE.Mesh(geometry, material);
+            const mesh = new THREE.Mesh(this.sharedGeometry, material);
             mesh.position.copy(position);
             
             const velocity = new THREE.Vector3(
@@ -37,6 +47,7 @@ export class ParticleSystem {
             });
         }
     }
+
     public update(delta: number): void {
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const p = this.particles[i];
@@ -54,5 +65,16 @@ export class ParticleSystem {
             p.mesh.rotation.x += delta * 5;
             p.mesh.rotation.y += delta * 5;
         }
+    }
+
+    public dispose(): void {
+        this.sharedGeometry.dispose();
+        this.particleMaterials.forEach(m => m.dispose());
+        this.particleMaterials.clear();
+        // Dispose remaining particles
+        for (const p of this.particles) {
+            this.scene.remove(p.mesh);
+        }
+        this.particles = [];
     }
 }

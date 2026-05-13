@@ -13,6 +13,7 @@ export class FirewallTower extends Tower {
         this.range = stats.range;
         this.fireRate = stats.fireRate;
         this.cost = stats.cost;
+        this.totalInvestment = stats.cost;
 
         const geo = new THREE.BoxGeometry(0.8, 1.2, 0.8);
         const mat = new THREE.MeshStandardMaterial({ 
@@ -57,6 +58,7 @@ export class FirewallTower extends Tower {
             if (target) {
                 this.cooldown = 1 / this.fireRate;
                 this.mesh.lookAt(target.mesh.position);
+                this.animateFire();
                 return new Projectile(this.scene, this.position, target, this.damage, this.color);
             }
         }
@@ -72,6 +74,7 @@ export class EncryptionNode extends Tower {
         this.range = stats.range;
         this.fireRate = stats.fireRate;
         this.cost = stats.cost;
+        this.totalInvestment = stats.cost;
 
         const geo = new THREE.CylinderGeometry(0.4, 0.6, 1.5, 6);
         const mat = new THREE.MeshStandardMaterial({ 
@@ -116,6 +119,7 @@ export class EncryptionNode extends Tower {
             if (target) {
                 this.cooldown = 1 / this.fireRate;
                 this.mesh.lookAt(target.mesh.position);
+                this.animateFire();
                 const p = new Projectile(this.scene, this.position, target, this.damage, this.color);
                 p.effect = { type: 'slow', duration: 2, value: 0.5 };
                 return p;
@@ -133,6 +137,7 @@ export class OverloadCannon extends Tower {
         this.range = stats.range;
         this.fireRate = stats.fireRate;
         this.cost = stats.cost;
+        this.totalInvestment = stats.cost;
 
         const geo = new THREE.BoxGeometry(1.2, 0.8, 1.2);
         const mat = new THREE.MeshStandardMaterial({ 
@@ -178,6 +183,7 @@ export class OverloadCannon extends Tower {
             if (target) {
                 this.cooldown = 1 / this.fireRate;
                 this.mesh.lookAt(target.mesh.position);
+                this.animateFire();
                 return new Projectile(this.scene, this.position, target, this.damage, this.color);
             }
         }
@@ -193,6 +199,7 @@ export class EMPTower extends Tower {
         this.range = stats.range;
         this.fireRate = stats.fireRate;
         this.cost = stats.cost;
+        this.totalInvestment = stats.cost;
 
         const geo = new THREE.SphereGeometry(0.6, 8, 8);
         const mat = new THREE.MeshStandardMaterial({ 
@@ -238,6 +245,7 @@ export class EMPTower extends Tower {
             if (targets.length > 0) {
                 this.cooldown = 1 / this.fireRate;
                 this.mesh.rotation.y += Math.PI / 4; // Spin animation per burst
+                this.animateFire();
                 return targets.map(t => new Projectile(this.scene, this.position, t, this.damage, this.color));
             }
         }
@@ -253,6 +261,7 @@ export class IceNode extends Tower {
         this.range = stats.range;
         this.fireRate = stats.fireRate;
         this.cost = stats.cost;
+        this.totalInvestment = stats.cost;
 
         const geo = new THREE.IcosahedronGeometry(0.6);
         const mat = new THREE.MeshStandardMaterial({ 
@@ -297,6 +306,7 @@ export class IceNode extends Tower {
             if (target) {
                 this.cooldown = 1 / this.fireRate;
                 this.mesh.lookAt(target.mesh.position);
+                this.animateFire();
                 const p = new Projectile(this.scene, this.position, target, this.damage, this.color);
                 p.effect = { type: 'freeze', duration: 0.5, value: 0 };
                 return p;
