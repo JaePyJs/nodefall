@@ -67,10 +67,12 @@ export class Game {
 
     private async init(): Promise<void> {
         try {
+            console.log("[Game] Step 1: Init renderer");
             this.updateLoading(10, 'INITIALIZING RENDERER...');
             const container = document.getElementById('game-container')!;
             this.renderer = new Renderer(container);
             
+            console.log("[Game] Step 2: Grid");
             this.updateLoading(30, 'SYNCHRONIZING GRID...');
             this.state = new GameState();
             this.grid = new Grid(this.renderer.scene);
@@ -78,11 +80,13 @@ export class Game {
             this.particles = new ParticleSystem(this.renderer.scene);
             this.audio = new AudioManager();
             
+            console.log("[Game] Step 3: Paths");
             this.updateLoading(60, 'DECRYPTING PATHS...');
             const worldPath = this.grid.currentPath.map(p => this.grid.getWorldPosition(p.x, p.y));
             this.waveManager = new WaveManager(this.renderer.scene, this.state, worldPath);
             this.input = new InputHandler(this.renderer.camera, this.renderer.renderer.domElement);
             
+            console.log("[Game] Step 4: HUD");
             this.updateLoading(80, 'ESTABLISHING HUD...');
             this.hud = new HUD(this.state);
             this.towerPanel = new TowerPanel((type) => this.selectTowerType(type));
@@ -96,6 +100,7 @@ export class Game {
             DocsPanel.init(this.state);
 
             this.initEffectOverlays();
+            console.log("[Game] Step 5: System ready!");
             this.updateLoading(100, 'SYSTEM READY');
             
             this.initEvents();
@@ -116,7 +121,7 @@ export class Game {
             requestAnimationFrame(this.boundLoop);
 
         } catch (error) {
-            console.error('Initialization failed:', error); console.error(error);
+            console.error('[Game] INIT FAILED:', error); console.error('[Game] Stack:', error instanceof Error ? error.stack : 'none');
             this.showError(error instanceof Error ? error.message : 'Unknown fatal error');
         }
     }
