@@ -38,8 +38,8 @@
           💰 GOLD: <span id="gold-counter" class="hud-value">200</span>
         </div>
         <div class="hud-item" style="gap: 5px;">
-            <button id="speed-btn" class="btn" style="padding: 4px 8px; width: auto;" title="Game Speed">1x</button>
-          <button id="pause-btn" class="btn" style="padding: 4px 8px; width: auto;" title="Pause">⏸</button>
+            <button id="speed-btn" class="btn" style="padding: 4px 8px; width: auto;" title="Game Speed"><kbd>Space</kbd>1x</button>
+          <button id="pause-btn" class="btn" style="padding: 4px 8px; width: auto;" title="Pause"><kbd>Space</kbd>⏸</button>
         </div>
       </div>
 
@@ -71,16 +71,120 @@
         </div>
       </div>
 
-      <!-- Main Menu Overlay -->
+      <!-- Main Menu Overlay — Command Center -->
       <div id="menu-overlay" class="overlay">
-        <div class="menu-content">
-          <h1 class="title glitch">NODEFALL</h1>
-          <div class="menu-buttons">
-            <button id="start-game-btn" class="btn" disabled style="padding: 15px 40px; font-size: 1.2rem;">INITIALIZE DEFENSE</button>
-            <p id="menu-status" style="font-size: 0.7rem; color: var(--text-secondary); margin-top: 10px;">Waiting for system ready...</p>
+        <!-- Ambient grid background -->
+        <div class="menu-grid-bg"></div>
+
+        <div class="menu-container">
+          <!-- TOP ROW -->
+          <div class="menu-top-row">
+            <!-- Logo Zone -->
+            <div class="menu-panel menu-logo-panel">
+              <div class="menu-logo">
+                <h1 class="title glitch">NODEFALL</h1>
+                <div class="menu-logo-subtitle">NETWORK DEFENSE SIMULATOR v1.0</div>
+              </div>
+              <div class="menu-status">
+                <span class="status-dot"></span>
+                <span id="menu-status-text">SYSTEM ONLINE</span>
+              </div>
+            </div>
+
+            <!-- Stats Dashboard -->
+            <div class="menu-panel menu-stats-panel">
+              <!-- Core Stats -->
+              <div class="menu-stats-section">
+                <div class="menu-stats-title">CORE STATS</div>
+                <div class="menu-stat-row">
+                  <span class="menu-stat-label">Wave</span>
+                  <span class="menu-stat-value" id="menu-wave-display">0 / 20</span>
+                </div>
+                <div class="menu-stat-row">
+                  <span class="menu-stat-label">Score</span>
+                  <span class="menu-stat-value" id="menu-score-display">0</span>
+                </div>
+                <div class="menu-stat-row">
+                  <span class="menu-stat-label">High Score</span>
+                  <span class="menu-stat-value menu-stat-high" id="menu-highscore-display">0</span>
+                </div>
+              </div>
+              <!-- Enemy Stats -->
+              <div class="menu-stats-section">
+                <div class="menu-stats-title">ENEMY STATS</div>
+                <div class="menu-stat-row">
+                  <span class="menu-stat-label">Kills</span>
+                  <span class="menu-stat-value" id="menu-kills-display">0</span>
+                </div>
+                <div class="menu-stat-row">
+                  <span class="menu-stat-label">Bosses</span>
+                  <span class="menu-stat-value" id="menu-bosses-display">0</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tower Showcase -->
+            <div class="menu-panel menu-tower-showcase">
+              <div class="menu-tower-header">
+                <span class="menu-tower-title">TOWERS</span>
+                <span class="menu-tower-progress" id="menu-tower-progress">0/5</span>
+              </div>
+              <div class="menu-tower-cards" id="menu-tower-cards">
+                <!-- Populated by Menu.ts -->
+              </div>
+            </div>
           </div>
-          <button id="how-to-play-btn" class="btn">SYSTEM MANUAL</button>
-          <button id="docs-btn" class="btn" style="border-color: rgba(0,245,255,0.4); color: #00f5ff; margin-top: 10px;">DOCUMENTATION</button>
+
+          <!-- BOTTOM ROW -->
+          <div class="menu-bottom-row">
+            <!-- Settings Panel -->
+            <div class="menu-panel menu-settings-panel">
+              <div class="menu-settings-title">SETTINGS</div>
+              <div class="menu-setting-row">
+                <span>Sound FX</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="menu-sound-toggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="menu-setting-row">
+                <span>Particles</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="menu-particles-toggle" checked>
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="menu-setting-row">
+                <span>Fullscreen</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="menu-fullscreen-toggle">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div class="menu-setting-row">
+                <span>Auto-start</span>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="menu-autostart-toggle">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Presentation Mode -->
+            <button id="presentation-mode-btn" class="menu-panel menu-presentation-btn">
+              <span class="presentation-icon">◉</span>
+              <span>PRESENTATION MODE</span>
+            </button>
+
+            <!-- Action Buttons -->
+            <div class="menu-panel menu-actions-panel">
+              <button id="start-game-btn" class="btn btn-primary-menu" disabled>INITIALIZE DEFENSE</button>
+              <div class="menu-secondary-actions">
+                <button id="how-to-play-btn" class="btn btn-secondary-menu">SYSTEM MANUAL</button>
+                <button id="docs-btn" class="btn btn-tertiary-menu">DOCUMENTATION</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -117,6 +221,14 @@
         <div class="hp-bar" style="position: relative; width: 100%; height: 10px; border-radius: 5px;">
           <div id="boss-hp-fill" class="hp-fill" style="background: var(--color-red); border-radius: 5px;"></div>
         </div>
+      </div>
+
+      <!-- Pause Overlay -->
+      <div id="pause-overlay">PAUSED</div>
+
+      <!-- Tower Unlock Banner -->
+      <div id="tower-unlock-banner">
+        <span id="tower-unlock-text"></span>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

@@ -57,6 +57,8 @@ export class Game {
     private boundLoop: (timestamp: number) => void;
     private activeMapNotification: HTMLDivElement | null = null;
     private currentMapNotificationTimeout: ReturnType<typeof setTimeout> | null = null;
+    private activeUnlockBanner: HTMLDivElement | null = null;
+    private goldFlashTimeout: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
         this.boundLoop = this.loop.bind(this);
@@ -151,18 +153,23 @@ export class Game {
         if (pauseBtn) {
             pauseBtn.onclick = () => {
                 this.state.isPaused = !this.state.isPaused;
-                pauseBtn.innerText = this.state.isPaused ? 'RESUME' : 'PAUSE';
+                pauseBtn.innerText = this.state.isPaused ? 'RESUME' : '⏸';
+                const gameContainer = document.getElementById('game-container');
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (gameContainer) gameContainer.classList.toggle('paused', this.state.isPaused);
+                if (pauseOverlay) pauseOverlay.classList.toggle('show', this.state.isPaused);
             };
         }
 
         const speedBtn = document.getElementById('speed-btn');
         if (speedBtn) {
+            speedBtn.innerHTML = `<kbd>Space</kbd>${this.state.gameSpeed}x`;
             speedBtn.onclick = () => {
                 const speeds = [1, 2, 3];
                 const currentIdx = speeds.indexOf(this.state.gameSpeed);
                 const nextIdx = (currentIdx + 1) % speeds.length;
                 this.state.gameSpeed = speeds[nextIdx];
-                speedBtn.innerText = `${this.state.gameSpeed}x`;
+                speedBtn.innerHTML = `<kbd>Space</kbd>${this.state.gameSpeed}x`;
             };
         }
     }
@@ -171,6 +178,16 @@ export class Game {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 this.cancelPlacement();
+            } else if (e.key === ' ' || e.key.toLowerCase() === 'space') {
+                // Toggle pause (prevent scroll)
+                e.preventDefault();
+                this.state.isPaused = !this.state.isPaused;
+                const pauseBtn = document.getElementById('pause-btn');
+                const gameContainer = document.getElementById('game-container');
+                const pauseOverlay = document.getElementById('pause-overlay');
+                if (pauseBtn) pauseBtn.innerText = this.state.isPaused ? 'RESUME' : '⏸';
+                if (gameContainer) gameContainer.classList.toggle('paused', this.state.isPaused);
+                if (pauseOverlay) pauseOverlay.classList.toggle('show', this.state.isPaused);
             } else if (e.key.toLowerCase() === 'e' && this.selectedTower) {
                 this.handleSell(this.selectedTower);
             } else if (e.key.toLowerCase() === 'q' && this.selectedTower) {
@@ -230,7 +247,71 @@ export class Game {
         }, 1000);
     }
 
-    /** Map transition notification overlay */
+    /** Show tower unlock notification banner */
+    private showTowerUnlockNotification(towerName: string): void {
+        if (this.activeUnlockBanner) {
+            this.activeUnlockBanner.remove();
+        }
+        const banner = document.createElement('div');
+        banner.id = 'tower-unlock-banner-inline';
+        banner.style.cssText = [
+            'position:fixed;top:-60px;left:50%;transform:translateX(-50%);',
+            'background:rgba(20,15,5,0.92);border:1px solid var(--color-gold);',
+            'border-radius:8px;padding:10px 24px;z-index:500;',
+            'font-size:0.85rem;color:var(--color-gold);',
+            'box-shadow:0 0 20px rgba(255,230,0,0.3);',
+            'transition:top 0.4s cubic-bezier(0.34,1.56,0.64,1);',
+        ].join('');
+        banner.innerHTML = `⚠ NEW TOWER UNLOCKED: <strong>${towerName}</strong>`;
+        document.body.appendChild(banner);
+        this.activeUnlockBanner = banner;
+
+        // Slide in
+        requestAnimationFrame(() => {
+            banner.style.top = '60px';
+        });
+
+        // Slide out after 3 seconds
+        setTimeout(() => {
+            banner.style.top = '-60px';
+            setTimeout(() => {
+                banner.remove();
+                if (this.activeUnlockBanner === banner) {
+                    this.activeUnlockBanner = null;
+                }
+            }, 400);
+        }, 3000);
+    }
+
+    /** Flash gold display when gold increases */
+    private flashGoldDisplay(): void {
+        const goldEl = document.getElementById('gold-counter');
+        if (!goldEl) return;
+
+        goldEl.style.transition = 'none';
+        goldEl.style.color = 'var(--color-gold)';
+        goldEl.style.textShadow = '0 0 12px rgba(255,230,0,0.8)';
+
+        if (this.goldFlashTimeout) clearTimeout(this.goldFlashTimeout);
+        this.goldFlashTimeout = setTimeout(() => {
+            goldEl.style.transition = 'color 0.3s, text-shadow 0.3s';
+            goldEl.style.color = '';
+            goldEl.style.textShadow = '';
+        }, 300);
+    }
+
+    /** Check if any new tower was unlocked at this wave */
+    private checkTowerUnlocks(wave: number): void {
+        const types: TowerType[] = ['FIREWALL', 'ENCRYPTION', 'OVERLOAD', 'EMP', 'ICE'];
+        for (const type of types) {
+            if (wave === TIER_UNLOCKS[type]) {
+                this.showTowerUnlockNotification(TOWER_STATS[type].name);
+                break; // Only show one at a time
+            }
+        }
+    }
+
+    /** Show map change notification (existing method) */
     private showMapChangeNotification(mapIndex: number, refund: number, bonus: number): void {
         // Remove any existing notification to prevent stacking
         if (this.activeMapNotification) {
@@ -295,7 +376,10 @@ export class Game {
             this.state.addGold(50 + (this.state.wave * 10));
             this.hud.update();
             this.towerPanel.updateAffordability(this.state.gold);
-            this.towerPanel.updateUnlock(this.state.wave + 1);
+            const newUnlockWave = this.state.wave + 1;
+            this.towerPanel.updateUnlock(newUnlockWave);
+            this.checkTowerUnlocks(newUnlockWave);
+            this.flashGoldDisplay();
         };
 
         this.waveManager.onMapChange = (index) => {
@@ -350,8 +434,15 @@ export class Game {
 
         // Update speed button to reflect restored speed
         const speedBtn = document.getElementById('speed-btn');
-        if (speedBtn) speedBtn.innerText = `${savedSpeed}x`;
+        if (speedBtn) speedBtn.innerHTML = `<kbd>Space</kbd>${savedSpeed}x`;
         this.grid.loadMap(0);
+
+        // Clean up pause state
+        const gameContainer = document.getElementById('game-container');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        if (gameContainer) gameContainer.classList.remove('paused');
+        if (pauseOverlay) pauseOverlay.classList.remove('show');
+        this.state.isPaused = false;
         this.selectedTowerType = null;
         this.selectedTower = null;
         this.towerPanel.highlightCard(null);
@@ -489,6 +580,7 @@ export class Game {
     }
 
     private startGame(): void {
+        this.state.isPaused = false;
         this.state.status = GameStatus.PLAYING;
         this.menu.hideMenu();
         this.waveBanner.show(1);
@@ -496,6 +588,12 @@ export class Game {
         this.hud.update();
         this.towerPanel.updateAffordability(this.state.gold);
         this.towerPanel.updateUnlock(1);
+
+        // Clean up pause visuals
+        const gameContainer = document.getElementById('game-container');
+        const pauseOverlay = document.getElementById('pause-overlay');
+        if (gameContainer) gameContainer.classList.remove('paused');
+        if (pauseOverlay) pauseOverlay.classList.remove('show');
     }
 
     private loop(timestamp: number): void {
