@@ -271,7 +271,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">150g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 2</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 12</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -281,7 +281,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">200g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 3</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 8</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -291,7 +291,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">250g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 4</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 12</div>
                 </div>
             </div>
             <div style="background: var(--bg-card); border: 1px solid rgba(0,245,255,0.15); border-radius: 8px; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
@@ -301,7 +301,7 @@ const DOCS_HTML = `
                 </div>
                 <div style="text-align: right;">
                     <div style="color: #d97757; font-size: 0.85rem;">175g</div>
-                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 5</div>
+                    <div style="color: var(--text-muted); font-size: 0.7rem;">Unlocks Wave 16</div>
                 </div>
             </div>
         </div>
@@ -384,7 +384,7 @@ const DOCS_HTML = `
     <!-- Footer -->
     <div style="text-align: center; padding-top: 20px; border-top: 1px solid rgba(0,245,255,0.1);">
         <p style="color: var(--text-muted); font-size: 0.7rem; letter-spacing: 2px;">
-            COURSE: PROGRAMMING 2 &nbsp;|&nbsp; DEVELOPERS: JAE + TEAMMATES
+            COURSE: PROGRAMMING 2 &nbsp;|&nbsp; DEVELOPERS: JOSE MIGUEL BARRON & JHO AV MAURISH YEE
         </p>
     </div>
 

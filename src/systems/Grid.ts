@@ -265,6 +265,8 @@ export class Grid {
     }
 
     public showPlacementRange(x: number, y: number, range: number, color: number): void {
+        const worldPos = this.getWorldPosition(x, y);
+
         if (!this.placementRangeCircle) {
             const geometry = new THREE.RingGeometry(range - 0.05, range + 0.05, 64);
             const material = new THREE.MeshBasicMaterial({
@@ -275,13 +277,17 @@ export class Grid {
             });
             this.placementRangeCircle = new THREE.Mesh(geometry, material);
             this.placementRangeCircle.rotation.x = -Math.PI / 2;
-            this.placementRangeCircle.position.y = 0.2;
+            this.placementRangeCircle.position.set(worldPos.x, 0.2, worldPos.z);
             this.scene.add(this.placementRangeCircle);
             this.rangeCircleFade = { elapsed: 0 };
+        } else {
+            // Update existing range circle with new range and color
+            this.placementRangeCircle.geometry.dispose();
+            this.placementRangeCircle.geometry = new THREE.RingGeometry(range - 0.05, range + 0.05, 64);
+            (this.placementRangeCircle.material as THREE.MeshBasicMaterial).color.setHex(color);
+            this.placementRangeCircle.position.set(worldPos.x, 0.2, worldPos.z);
+            this.rangeCircleFade = { elapsed: 0 };
         }
-
-        const worldPos = this.getWorldPosition(x, y);
-        this.placementRangeCircle.position.set(worldPos.x, 0.2, worldPos.z);
     }
 
     public hidePlacementRange(): void {

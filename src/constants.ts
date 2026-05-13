@@ -1,3 +1,5 @@
+import type { TowerType } from './types';
+
 export const TILE_SIZE = 2;
 export const GRID_COLS = 20;
 export const GRID_ROWS = 14;

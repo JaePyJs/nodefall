@@ -140,7 +140,7 @@ export class WaveManager {
             case 'WormProcess': enemy = new WormProcess(this.scene, this.worldPath); break;
             case 'DaemonThread': enemy = new DaemonThread(this.scene, this.worldPath); break;
             case 'Rootkit': enemy = new Rootkit(this.scene, this.worldPath); break;
-            case 'KernelBoss': enemy = new KernelBoss(this.scene, this.worldPath, this.currentWaveIndex); break;
+            case 'KernelBoss': enemy = new KernelBoss(this.scene, this.worldPath); break;
             default: enemy = new DataPacket(this.scene, this.worldPath); break;
         }
         

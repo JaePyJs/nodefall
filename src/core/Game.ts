@@ -7,8 +7,8 @@ import { WaveManager } from '../systems/WaveManager';
 import { Tower } from '../entities/Tower';
 import { FirewallTower, EncryptionNode, OverloadCannon, EMPTower, IceNode } from '../entities/TowerTypes';
 import { Enemy } from '../entities/Enemy';
-import { DataPacket, WormProcess, disposeEnemyCache } from '../entities/EnemyTypes';
-import { Projectile, disposeProjectileCache } from '../entities/Projectile';
+import { DataPacket, WormProcess } from '../entities/EnemyTypes';
+import { Projectile } from '../entities/Projectile';
 import { DamageNumberPool } from '../systems/Pools';
 import { ParticleSystem } from '../systems/Particles';
 import { AudioManager } from '../systems/AudioManager';
@@ -163,13 +163,13 @@ export class Game {
 
         const speedBtn = document.getElementById('speed-btn');
         if (speedBtn) {
-            speedBtn.innerHTML = `<kbd>Space</kbd>${this.state.gameSpeed}x`;
+            speedBtn.innerHTML = `${this.state.gameSpeed}x`;
             speedBtn.onclick = () => {
                 const speeds = [1, 2, 3];
                 const currentIdx = speeds.indexOf(this.state.gameSpeed);
                 const nextIdx = (currentIdx + 1) % speeds.length;
                 this.state.gameSpeed = speeds[nextIdx];
-                speedBtn.innerHTML = `<kbd>Space</kbd>${this.state.gameSpeed}x`;
+                speedBtn.innerHTML = `${this.state.gameSpeed}x`;
             };
         }
     }
@@ -376,6 +376,7 @@ export class Game {
             this.state.addGold(50 + (this.state.wave * 10));
             this.hud.update();
             this.towerPanel.updateAffordability(this.state.gold);
+            if (this.selectedTower) this.infoPanel.update(this.selectedTower);
             const newUnlockWave = this.state.wave + 1;
             this.towerPanel.updateUnlock(newUnlockWave);
             this.checkTowerUnlocks(newUnlockWave);
@@ -434,7 +435,7 @@ export class Game {
 
         // Update speed button to reflect restored speed
         const speedBtn = document.getElementById('speed-btn');
-        if (speedBtn) speedBtn.innerHTML = `<kbd>Space</kbd>${savedSpeed}x`;
+        if (speedBtn) speedBtn.innerHTML = `${savedSpeed}x`;
         this.grid.loadMap(0);
 
         // Clean up pause state
@@ -455,7 +456,7 @@ export class Game {
         document.getElementById('boss-hp-container')!.style.display = 'none';
 
         // Clean up lingering damage numbers and their timers
-        this.damagePool?.clear();
+        // damage pool auto-clears via timeout
 
         // Kill pending map notification timeout
         if (this.currentMapNotificationTimeout) {
@@ -473,9 +474,7 @@ export class Game {
         this.waveManager.reset();
 
         // Release shared enemy geometry/material cache to prevent stale GPU state
-        disposeEnemyCache();
         // Release shared projectile caches
-        disposeProjectileCache();
     }
 
     private selectTowerType(type: TowerType): void {
@@ -673,6 +672,7 @@ export class Game {
                 enemy.onDeath(this.state);
                 this.hud.update();
                 this.towerPanel.updateAffordability(this.state.gold);
+                if (this.selectedTower) this.infoPanel.update(this.selectedTower);
 
                 enemy.dispose();
                 this.enemies.splice(i, 1);
