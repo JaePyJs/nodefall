@@ -941,20 +941,6 @@ body {
 
 /* === DOCS PANEL === */
 
-#docs-panel-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(5, 5, 20, 0.92);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.2s ease-out;
-}
-
 #docs-panel-inner {
     width: 90%;
     height: 90%;
@@ -1100,16 +1086,6 @@ kbd {
     /* Tower panel cards in menu */
     .tower-card {
         font-size: 1rem;
-    }
-    
-    /* Docs Panel - full screen on tablet */
-    #docs-panel-overlay {
-        padding: 20px;
-    }
-    
-    #docs-panel-inner {
-        max-width: 95%;
-        max-height: 90vh;
     }
     
     /* Wave banner - larger text */
@@ -1287,4 +1263,33 @@ kbd {
         bottom: 10px;
         max-height: 35vh;
     }
+}
+
+
+#docs-panel-overlay {
+    width: min(90vw, 950px);
+    height: 90dvh;
+    max-height: none;
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #100c1a;
+    color: #f0edf8;
+}
+
+#docs-panel-overlay::backdrop {
+    background: rgba(5, 5, 20, .92);
+}
+
+#docs-panel-overlay:focus-visible,
+#docs-panel-overlay :focus-visible {
+    outline: 2px solid #95f5ff;
+    outline-offset: -3px;
+}
+
+#manual-btn {
+    width: auto;
+    padding: 4px 8px;
 }

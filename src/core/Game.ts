@@ -97,7 +97,6 @@ export class Game {
             );
             this.waveBanner = new WaveBanner(() => this.waveManager.startWave());
             this.menu = new Menu(() => this.startGame());
-            DocsPanel.init(this.state);
 
             this.initEffectOverlays();
             console.log("[Game] Step 5: System ready!");
@@ -154,6 +153,7 @@ export class Game {
     }
 
     private initHUDButtons(): void {
+        document.getElementById('manual-btn')?.addEventListener('click', DocsPanel.open);
         const pauseBtn = document.getElementById('pause-btn');
         if (pauseBtn) {
             pauseBtn.onclick = () => {
@@ -181,6 +181,9 @@ export class Game {
 
     private initKeyboard(): void {
         window.addEventListener('keydown', (e) => {
+            if (DocsPanel.isOpen() || this.state.status === GameStatus.MENU || e.repeat) return;
+            if (e.target instanceof HTMLElement &&
+                e.target.closest('button, input, select, textarea, a[href], [contenteditable]')) return;
             if (e.key === 'Escape') {
                 this.cancelPlacement();
             } else if (e.key === ' ' || e.key.toLowerCase() === 'space') {
@@ -632,7 +635,7 @@ export class Game {
             return;
         }
 
-        if (this.state.isPaused) {
+        if (this.state.isPaused || DocsPanel.isOpen()) {
             this.renderer.render();
             return;
         }

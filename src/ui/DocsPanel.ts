@@ -1,90 +1,24 @@
-import { GameState } from '../systems/GameState';
-import { GameStatus } from '../types';
-
-/**
- * DocsPanel — static singleton module for the in-game documentation overlay.
- *
- * Usage:
- *   DocsPanel.init(gameState);
- *   DocsPanel.open();    // opens panel, pauses game if playing
- *   DocsPanel.close();   // closes panel, restores game state
- *   DocsPanel.isOpen();  // returns current open state
- */
 export const DocsPanel = (() => {
-    // Module-level state
-    let gameState: GameState | null = null;
-    let _isOpen = false;
-
-    // Saved game state for restore on close
-    let savedIsPaused = false;
-    let savedStatus: GameStatus = GameStatus.MENU;
-
-    // DOM refs (set on first open)
-    let overlayEl: HTMLElement | null = null;
-    let closeBtn: HTMLElement | null = null;
-    let escHandler: ((e: KeyboardEvent) => void) | null = null;
-
-    function init(gs: GameState): void {
-        gameState = gs;
-    }
+    let dialog: HTMLDialogElement | null = null;
 
     function open(): void {
-        if (!gameState) {
-            return;
-        }
-
-        // Save game state — only when opened during active gameplay
-        if (gameState.status !== GameStatus.MENU) {
-            savedIsPaused = gameState.isPaused;
-            savedStatus = gameState.status;
-            gameState.isPaused = true;
-        }
-
-        // First open: create DOM once
-        if (!overlayEl) {
-            buildDOM();
-        }
-
-        (overlayEl as HTMLElement).style.display = 'flex';
-        _isOpen = true;
-    }
-
-    function close(): void {
-        if (!_isOpen || !overlayEl) return;
-
-        (overlayEl as HTMLElement).style.display = 'none';
-        _isOpen = false;
-
-        // Remove ESC listener to prevent leak
-        if (escHandler) {
-            window.removeEventListener('keydown', escHandler);
-            escHandler = null;
-        }
-
-        // Restore game state — only when we saved it (i.e., not opened from MENU)
-        if (gameState && gameState.status !== GameStatus.MENU) {
-            gameState.isPaused = savedIsPaused;
-            gameState.status = savedStatus;
-        }
+        dialog ??= buildDOM();
+        if (!dialog.open) dialog.showModal();
     }
 
     function isOpen(): boolean {
-        return _isOpen;
+        return dialog?.open ?? false;
     }
 
-    function buildDOM(): void {
-        overlayEl = document.createElement('div');
+    function buildDOM(): HTMLDialogElement {
+        const overlayEl = document.createElement('dialog');
         overlayEl.id = 'docs-panel-overlay';
-        overlayEl.style.cssText = [
-            'position: fixed; top: 0; left: 0; width: 100%; height: 100%;',
-            'background: rgba(5, 5, 20, 0.92); z-index: 2000;',
-            'display: flex; align-items: center; justify-content: center;',
-        ].join(' ');
+        overlayEl.setAttribute('aria-labelledby', 'docs-panel-title');
 
         const inner = document.createElement('div');
         inner.id = 'docs-panel-inner';
         inner.style.cssText = [
-            'width: 90%; height: 90%; max-width: 950px;',
+            'width: 100%; height: 100%;',
             'background: #100c1a;',
             'border: 1px solid rgba(0,245,255,0.25);',
             'border-radius: 12px;',
@@ -93,7 +27,6 @@ export const DocsPanel = (() => {
             'overflow: hidden; position: relative;',
         ].join(' ');
 
-        // Header
         const header = document.createElement('div');
         header.style.cssText = [
             'display: flex; justify-content: space-between; align-items: center;',
@@ -102,15 +35,16 @@ export const DocsPanel = (() => {
             'background: rgba(0,0,0,0.3); flex-shrink: 0;',
         ].join(' ');
 
-        const title = document.createElement('span');
+        const title = document.createElement('h2');
+        title.id = 'docs-panel-title';
         title.style.cssText = [
             "font-family: 'Share Tech Mono', monospace;",
-            'font-size: 0.75rem; letter-spacing: 3px;',
+            'font-size: 0.85rem; margin: 0; letter-spacing: 2px;',
             'color: #00f5ff; text-transform: uppercase;',
         ].join(' ');
-        title.textContent = 'NODEFALL — Documentation';
+        title.textContent = 'NODEFALL system manual';
 
-        closeBtn = document.createElement('button');
+        const closeBtn = document.createElement('button');
         closeBtn.id = 'docs-panel-close-btn';
         closeBtn.style.cssText = [
             'background: rgba(255,34,68,0.15);',
@@ -120,13 +54,13 @@ export const DocsPanel = (() => {
             'font-size: 0.75rem; letter-spacing: 2px;',
             'cursor: pointer; transition: all 0.2s;',
         ].join(' ');
-        closeBtn.textContent = 'CLOSE [ESC]';
-        closeBtn.addEventListener('click', close);
+        closeBtn.textContent = 'Close';
+        closeBtn.autofocus = true;
+        closeBtn.addEventListener('click', () => overlayEl.close());
 
         header.appendChild(title);
         header.appendChild(closeBtn);
 
-        // Scrollable content area
         const content = document.createElement('div');
         content.id = 'docs-panel-content';
         content.style.cssText = [
@@ -134,7 +68,6 @@ export const DocsPanel = (() => {
             'scrollbar-width: thin; scrollbar-color: #00f5ff #1a1028;',
         ].join(' ');
 
-        // Inject scanline overlay + scrollbar CSS
         const styleEl = document.createElement('style');
         styleEl.textContent = `
             #docs-panel-content::before {
@@ -149,7 +82,6 @@ export const DocsPanel = (() => {
         `;
         content.appendChild(styleEl);
 
-        // Documentation body
         const docBody = document.createElement('div');
         docBody.style.cssText = [
             '--bg-deep: #100c1a;',
@@ -177,14 +109,10 @@ export const DocsPanel = (() => {
         overlayEl.appendChild(inner);
         document.body.appendChild(overlayEl);
 
-        // ESC key handler
-        escHandler = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && _isOpen) close();
-        };
-        window.addEventListener('keydown', escHandler);
+        return overlayEl;
     }
 
-    return { init, open, close, isOpen };
+    return { open, isOpen };
 })();
 
 const DOCS_HTML = `
