@@ -27,7 +27,8 @@ Then open `http://localhost:5173` in your browser.
 |-----|--------|
 | **Left Click** | Place tower / Select tower |
 | **1-5** | Quick-select towers by number |
-| **E** / **ESC** | Cancel placement |
+| **Esc** | Cancel placement or close the system manual |
+| **E** | Sell the selected tower |
 | **Space** | Toggle pause |
 | **Speed button** | Cycle 1x, 2x, 3x game speed |
 
@@ -83,3 +84,14 @@ npm run preview  # Preview build
 **Course**: Programming 2
 
 **Developers**: Jae + Teammates
+
+## Browser verification
+
+Open **Manual** during a match to review the controls. The game waits while the manual is open and preserves the player's pause setting when it closes.
+
+```bash
+npm ci
+npx playwright install chromium
+npm run build
+npm test
+```
